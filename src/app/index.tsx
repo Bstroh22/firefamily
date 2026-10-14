@@ -27,7 +27,7 @@ type HomeListing = {
   price: number | null;
   photo_urls: string[];
   created_at: string;
-  seller: { station: string | null } | null;
+  seller: { full_name: string | null; station: string | null } | null;
 };
 
 type HomePost = {
@@ -97,7 +97,7 @@ export default function HomeScreen() {
       supabase.rpc('active_member_count', { minutes: 5 }),
       supabase
         .from('listings')
-        .select('id, title, price, photo_urls, created_at, seller:profiles(station)')
+        .select('id, title, price, photo_urls, created_at, seller:profiles(full_name, station)')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(6),
@@ -144,8 +144,8 @@ export default function HomeScreen() {
       }
     >
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
-        <View style={styles.headerTop}>
+      <View style={[styles.header, { paddingTop: insets.top + 14 }]}><Image source={require('../../assets/images/logo-mark.png')} style={[styles.watermark, { top: insets.top + 30 }]} resizeMode="contain" />
+        <View style={styles.headerTop}><Image source={require('../../assets/images/logo-mark.png')} style={styles.brandMark} resizeMode="contain" />
           <Text style={styles.brand}>
             SoCal <Text style={{ color: RED }}>Fire</Text>Family
           </Text>
@@ -210,7 +210,7 @@ export default function HomeScreen() {
                   <Text style={styles.listingPrice}>{formatPrice(l.price)}</Text>
                   <Text style={styles.listingTitle} numberOfLines={1}>{l.title}</Text>
                   <Text style={styles.listingMeta} numberOfLines={1}>
-                    {l.seller?.station ? `${l.seller.station} · ` : ''}{timeAgo(l.created_at)}
+                    {l.seller?.full_name ?? 'Unknown'} · {timeAgo(l.created_at)}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -276,9 +276,9 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F3F1EE' },
-  header: { backgroundColor: NAVY, paddingHorizontal: 20, paddingBottom: 56 },
+  header: { backgroundColor: NAVY, paddingHorizontal: 20, paddingBottom: 56, overflow: 'hidden' },
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  brand: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
+  brand: { color: '#fff', fontSize: 20, fontWeight: 'bold', flex: 1, marginLeft: 10 }, brandMark: { width: 36, height: 36 }, watermark: { position: 'absolute', right: -70, width: 290, height: 290, opacity: 0.12 },
   avatarRing: { borderWidth: 2, borderColor: ORANGE, borderRadius: 24, padding: 2 },
   greeting: { color: '#C9D3E0', fontSize: 15 },
   name: { color: '#fff', fontSize: 30, fontWeight: 'bold', marginTop: 2 },
