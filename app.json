@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "firefamily",
     "userInterfaceStyle": "automatic",
-    "ios": {
+    "ios": { "bundleIdentifier": "com.socalfirefamily.app",
       "icon": "./assets/expo.icon"
     },
     "android": {
@@ -37,6 +37,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "62e1fbb6-6394-4e7c-b290-6827fa44bf11"
+      }
+    },
+    "owner": "b_stroh"
   }
 }
