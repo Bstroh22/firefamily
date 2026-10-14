@@ -1,4 +1,6 @@
 import { Tabs, router } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import { useEffect } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { AdminCountProvider } from '../../lib/admin';
 import { AuthProvider, useAuth } from '../../lib/auth';
@@ -6,6 +8,7 @@ import AuthScreen from '../../lib/AuthScreen';
 import AvatarRequiredScreen from '../../lib/AvatarRequiredScreen';
 import { UnreadMessagesProvider } from '../../lib/messages';
 import PendingScreen from '../../lib/PendingScreen';
+SplashScreen.preventAutoHideAsync();
 
 const FIRE_RED = '#C8102E';
 
@@ -91,7 +94,7 @@ function MainTabs() {
 }
 
 function AppGate() {
-  const { session, profile, loading } = useAuth();
+  const { session, profile, loading } = useAuth(); useEffect(() => { if (!loading) { const t = setTimeout(() => SplashScreen.hideAsync(), 800); return () => clearTimeout(t); } }, [loading]);
 
   if (loading) {
     return (

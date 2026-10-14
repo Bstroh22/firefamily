@@ -6,16 +6,16 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "firefamily",
-    "userInterfaceStyle": "automatic",
-    "ios": { "bundleIdentifier": "com.socalfirefamily.app",
-      "icon": "./assets/expo.icon"
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "com.socalfirefamily.app",
+      "config": { "usesNonExemptEncryption": false }
     },
     "android": {
+      "package": "com.socalfirefamily.app",
       "adaptiveIcon": {
         "backgroundColor": "#031D3C",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/adaptive-icon.png"
       },
       "predictiveBackGestureEnabled": false
     },
@@ -24,13 +24,20 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "SoCal FireFamily uses your photos so you can add pictures to listings, rentals, and your profile.",
+          "cameraPermission": "SoCal FireFamily uses your camera so you can take photos for listings, rentals, and your profile."
+        }
+      ],
       "expo-router",
       [
         "expo-splash-screen",
         {
           "backgroundColor": "#031D3C",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 280
         }
       ]
     ],

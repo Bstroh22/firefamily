@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
   header: { backgroundColor: NAVY, paddingHorizontal: 20, paddingBottom: 56, overflow: 'hidden' },
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   brand: { color: '#fff', fontSize: 20, fontWeight: 'bold', flex: 1, marginLeft: 10 }, brandMark: { width: 36, height: 36 }, watermark: { position: 'absolute', right: -70, width: 290, height: 290, opacity: 0.12 },
-  avatarRing: { borderWidth: 2, borderColor: ORANGE, borderRadius: 24, padding: 2 },
+  avatarRing: { borderWidth: 2, borderColor: RED, borderRadius: 24, padding: 2 },
   greeting: { color: '#C9D3E0', fontSize: 15 },
   name: { color: '#fff', fontSize: 30, fontWeight: 'bold', marginTop: 2 },
   subtitle: { color: '#C9D3E0', fontSize: 14, marginTop: 2 },
