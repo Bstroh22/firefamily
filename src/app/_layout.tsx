@@ -3,6 +3,7 @@ import { ActivityIndicator, Text, View } from 'react-native';
 import { AdminCountProvider, useAdminCount } from '../../lib/admin';
 import { AuthProvider, useAuth } from '../../lib/auth';
 import AuthScreen from '../../lib/AuthScreen';
+import { UnreadMessagesProvider, useUnreadMessages } from '../../lib/messages';
 import PendingScreen from '../../lib/PendingScreen';
 import { supabase } from '../../lib/supabase';
 
@@ -13,7 +14,8 @@ function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
 }
 
 function MainTabs({ isAdmin }: { isAdmin: boolean }) {
-  const { count } = useAdminCount();
+  const { count: adminCount } = useAdminCount();
+  const { count: unreadCount } = useUnreadMessages();
 
   return (
     <Tabs
@@ -55,6 +57,14 @@ function MainTabs({ isAdmin }: { isAdmin: boolean }) {
         }}
       />
       <Tabs.Screen
+        name="messages"
+        options={{
+          title: 'Messages',
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          tabBarIcon: ({ focused }) => <TabIcon emoji="✉️" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
@@ -66,7 +76,7 @@ function MainTabs({ isAdmin }: { isAdmin: boolean }) {
         options={{
           title: 'Admin',
           href: isAdmin ? undefined : null,
-          tabBarBadge: isAdmin && count > 0 ? count : undefined,
+          tabBarBadge: isAdmin && adminCount > 0 ? adminCount : undefined,
           tabBarIcon: ({ focused }) => <TabIcon emoji="🛡️" focused={focused} />,
         }}
       />
@@ -90,7 +100,9 @@ function AppGate() {
 
   return (
     <AdminCountProvider enabled={!!profile.is_admin}>
-      <MainTabs isAdmin={!!profile.is_admin} />
+      <UnreadMessagesProvider>
+        <MainTabs isAdmin={!!profile.is_admin} />
+      </UnreadMessagesProvider>
     </AdminCountProvider>
   );
 }

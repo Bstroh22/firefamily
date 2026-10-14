@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   Image,
@@ -10,6 +12,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import ConversationChat from './ConversationChat';
+import { startConversation } from './messages';
 
 const FIRE_RED = '#C8102E';
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -58,6 +62,13 @@ type Props = {
 };
 
 export default function RentalDetailModal({ rental, isMine, onClose, onEdit, onHide, onDelete }: Props) {
+  const [chatId, setChatId] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
+
+  useEffect(() => {
+    setChatId(null);
+  }, [rental?.id]);
+
   if (!rental) return null;
   const photos = rental.photo_urls ?? [];
   const postedBySomeoneElse = !!rental.host_name;
@@ -67,6 +78,17 @@ export default function RentalDetailModal({ rental, isMine, onClose, onEdit, onH
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => onDelete(rental!.id) },
     ]);
+  }
+
+  async function messageOwner() {
+    setStarting(true);
+    try {
+      setChatId(await startConversation(rental!.owner_id));
+    } catch (e: any) {
+      Alert.alert('Could not start chat', e.message);
+    } finally {
+      setStarting(false);
+    }
   }
 
   return (
@@ -133,6 +155,18 @@ export default function RentalDetailModal({ rental, isMine, onClose, onEdit, onH
             </>
           ) : null}
 
+          {!isMine && (
+            <TouchableOpacity style={[styles.primaryButton, { marginTop: 28 }]} onPress={messageOwner} disabled={starting}>
+              {starting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.primaryButtonText}>
+                  💬 {postedBySomeoneElse ? 'Message Poster' : 'Message Host'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
+
           {isMine && (
             <View style={{ marginTop: 28 }}>
               <TouchableOpacity style={styles.primaryButton} onPress={() => onEdit(rental)}>
@@ -148,6 +182,13 @@ export default function RentalDetailModal({ rental, isMine, onClose, onEdit, onH
           )}
         </View>
       </ScrollView>
+
+      <ConversationChat
+        conversationId={chatId}
+        otherName={rental.owner?.full_name ?? 'Host'}
+        initialText={`Hi! I'm interested in "${rental.title}". Is it available?`}
+        onClose={() => setChatId(null)}
+      />
     </Modal>
   );
 }

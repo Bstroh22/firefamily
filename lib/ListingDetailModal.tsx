@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   Image,
@@ -9,6 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import ConversationChat from './ConversationChat';
+import { startConversation } from './messages';
 
 const FIRE_RED = '#C8102E';
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -50,6 +54,13 @@ type Props = {
 };
 
 export default function ListingDetailModal({ listing, isMine, onClose, onEdit, onMarkSold, onDelete }: Props) {
+  const [chatId, setChatId] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
+
+  useEffect(() => {
+    setChatId(null);
+  }, [listing?.id]);
+
   if (!listing) return null;
   const photos = listing.photo_urls ?? [];
 
@@ -58,6 +69,17 @@ export default function ListingDetailModal({ listing, isMine, onClose, onEdit, o
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => onDelete(listing!.id) },
     ]);
+  }
+
+  async function messageSeller() {
+    setStarting(true);
+    try {
+      setChatId(await startConversation(listing!.seller_id));
+    } catch (e: any) {
+      Alert.alert('Could not start chat', e.message);
+    } finally {
+      setStarting(false);
+    }
   }
 
   return (
@@ -103,6 +125,16 @@ export default function ListingDetailModal({ listing, isMine, onClose, onEdit, o
             {listing.seller?.station ? ` · ${listing.seller.station}` : ''}
           </Text>
 
+          {!isMine && (
+            <TouchableOpacity style={[styles.primaryButton, { marginTop: 28 }]} onPress={messageSeller} disabled={starting}>
+              {starting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.primaryButtonText}>💬 Message Seller</Text>
+              )}
+            </TouchableOpacity>
+          )}
+
           {isMine && (
             <View style={{ marginTop: 28 }}>
               <TouchableOpacity style={styles.primaryButton} onPress={() => onEdit(listing)}>
@@ -118,6 +150,13 @@ export default function ListingDetailModal({ listing, isMine, onClose, onEdit, o
           )}
         </View>
       </ScrollView>
+
+      <ConversationChat
+        conversationId={chatId}
+        otherName={listing.seller?.full_name ?? 'Seller'}
+        initialText={`Hi! Is your "${listing.title}" still available?`}
+        onClose={() => setChatId(null)}
+      />
     </Modal>
   );
 }
