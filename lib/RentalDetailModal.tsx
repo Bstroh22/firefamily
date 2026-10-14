@@ -83,7 +83,7 @@ export default function RentalDetailModal({ rental, isMine, onClose, onEdit, onH
   async function messageOwner() {
     setStarting(true);
     try {
-      setChatId(await startConversation(rental!.owner_id));
+      setChatId(await startConversation(rental!.owner_id, 'rental', rental!.id, rental!.title));
     } catch (e: any) {
       Alert.alert('Could not start chat', e.message);
     } finally {
@@ -187,7 +187,7 @@ export default function RentalDetailModal({ rental, isMine, onClose, onEdit, onH
         conversationId={chatId}
         otherName={rental.owner?.full_name ?? 'Host'}
         initialText={`Hi! I'm interested in "${rental.title}". Is it available?`}
-        onClose={() => setChatId(null)}
+        subtitle={`🏡 Rental · ${rental.title}`} onClose={() => setChatId(null)}
       />
     </Modal>
   );

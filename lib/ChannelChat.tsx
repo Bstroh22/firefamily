@@ -13,6 +13,8 @@ import {
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ChannelHere } from './activity';
 import { useAuth } from './auth';
+import ConversationChat from './ConversationChat';
+import { startConversation } from './messages';
 import { supabase } from './supabase';
 
 const FIRE_RED = '#C8102E';
@@ -59,6 +61,7 @@ export default function ChannelChat({ channel, onClose }: Props) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [typers, setTypers] = useState<Record<string, Typer>>({});
+  const [directChat, setDirectChat] = useState<{ id: string; name: string } | null>(null);
 
   const liveRef = useRef<RealtimeChannel | null>(null);
   const lastTypingSentRef = useRef(0);
@@ -79,6 +82,7 @@ export default function ChannelChat({ channel, onClose }: Props) {
     if (!channel) return;
     setLoading(true);
     setMessages([]);
+    setDirectChat(null);
     loadMessages();
     const timer = setInterval(loadMessages, REFRESH_MS);
     return () => clearInterval(timer);
@@ -178,6 +182,24 @@ export default function ChannelChat({ channel, onClose }: Props) {
     ]);
   }
 
+  function confirmDirectMessage(message: Message) {
+    const name = message.author?.full_name ?? 'this member';
+    Alert.alert(`Message ${name}?`, 'Start a private conversation.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Message',
+        onPress: async () => {
+          try {
+            const id = await startConversation(message.author_id, 'direct');
+            setDirectChat({ id, name });
+          } catch (e: any) {
+            Alert.alert('Could not start chat', e.message);
+          }
+        },
+      },
+    ]);
+  }
+
   if (!channel) return null;
 
   const typingText = typingLabel(Object.values(typers).map((t) => t.name));
@@ -230,7 +252,11 @@ export default function ChannelChat({ channel, onClose }: Props) {
                       onLongPress={mine ? () => confirmDelete(item) : undefined}
                       style={[styles.row, mine ? styles.rowMine : styles.rowTheirs]}
                     >
-                      <Text style={[styles.author, mine && styles.authorMine]}>
+                      <Text
+                        style={[styles.author, mine ? styles.authorMine : styles.authorTappable]}
+                        onPress={mine ? undefined : () => confirmDirectMessage(item)}
+                        suppressHighlighting
+                      >
                         {item.author?.full_name ?? 'Unknown'}
                         {item.author?.station ? ` · ${item.author.station}` : ''}
                       </Text>
@@ -270,6 +296,13 @@ export default function ChannelChat({ channel, onClose }: Props) {
           </KeyboardAvoidingView>
         </SafeAreaView>
       </SafeAreaProvider>
+
+      <ConversationChat
+        conversationId={directChat?.id ?? null}
+        otherName={directChat?.name ?? ''}
+        subtitle="✉️ Direct message"
+        onClose={() => setDirectChat(null)}
+      />
     </Modal>
   );
 }
@@ -295,6 +328,7 @@ const styles = StyleSheet.create({
   rowTheirs: { alignSelf: 'flex-start' },
   author: { fontSize: 12, color: '#666', fontWeight: '600', marginBottom: 3, marginLeft: 4 },
   authorMine: { textAlign: 'right', marginLeft: 0, marginRight: 4 },
+  authorTappable: { color: '#444', textDecorationLine: 'underline' },
   bubble: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 18 },
   bubbleMine: { backgroundColor: FIRE_RED, borderBottomRightRadius: 4 },
   bubbleTheirs: { backgroundColor: '#efefef', borderBottomLeftRadius: 4 },

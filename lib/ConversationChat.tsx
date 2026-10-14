@@ -34,11 +34,12 @@ function formatTime(dateString: string) {
 type Props = {
   conversationId: string | null;
   otherName: string;
+  subtitle?: string;
   initialText?: string;
   onClose: () => void;
 };
 
-export default function ConversationChat({ conversationId, otherName, initialText, onClose }: Props) {
+export default function ConversationChat({ conversationId, otherName, subtitle, initialText, onClose }: Props) {
   const { session } = useAuth();
   const myId = session?.user.id;
   const { refresh: refreshUnread } = useUnreadMessages();
@@ -115,7 +116,7 @@ export default function ConversationChat({ conversationId, otherName, initialTex
             </TouchableOpacity>
             <View style={{ flex: 1, alignItems: 'center' }}>
               <Text style={styles.headerTitle} numberOfLines={1}>{otherName}</Text>
-              <Text style={styles.headerSub}>Private message</Text>
+              <Text style={styles.headerSub} numberOfLines={1}>{subtitle ?? '✉️ Direct message'}</Text>
             </View>
             <View style={{ width: 70 }} />
           </View>
@@ -190,7 +191,7 @@ const styles = StyleSheet.create({
   backButton: { width: 70, paddingVertical: 4 },
   back: { color: FIRE_RED, fontSize: 17, fontWeight: '600' },
   headerTitle: { fontSize: 17, fontWeight: 'bold', color: '#111' },
-  headerSub: { fontSize: 12, color: '#888', marginTop: 2 },
+  headerSub: { fontSize: 12, color: FIRE_RED, marginTop: 2, fontWeight: '600' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list: { padding: 12 },
   emptyContainer: { flexGrow: 1 },

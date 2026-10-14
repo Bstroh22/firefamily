@@ -74,7 +74,7 @@ export default function ListingDetailModal({ listing, isMine, onClose, onEdit, o
   async function messageSeller() {
     setStarting(true);
     try {
-      setChatId(await startConversation(listing!.seller_id));
+      setChatId(await startConversation(listing!.seller_id, 'listing', listing!.id, listing!.title));
     } catch (e: any) {
       Alert.alert('Could not start chat', e.message);
     } finally {
@@ -155,7 +155,7 @@ export default function ListingDetailModal({ listing, isMine, onClose, onEdit, o
         conversationId={chatId}
         otherName={listing.seller?.full_name ?? 'Seller'}
         initialText={`Hi! Is your "${listing.title}" still available?`}
-        onClose={() => setChatId(null)}
+        subtitle={`🛒 Marketplace · ${listing.title}`} onClose={() => setChatId(null)}
       />
     </Modal>
   );

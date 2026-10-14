@@ -11,7 +11,9 @@ import {
 } from 'react-native';
 import ConversationChat from '../../lib/ConversationChat';
 import { timeAgo } from '../../lib/ListingDetailModal';
-import { ConversationSummary, fetchConversations, useUnreadMessages } from '../../lib/messages';
+import {
+    ConversationSummary, fetchConversations, subjectLabel, useUnreadMessages,
+} from '../../lib/messages';
 
 const FIRE_RED = '#C8102E';
 
@@ -76,7 +78,7 @@ export default function MessagesScreen() {
             <Text style={{ fontSize: 56 }}>✉️</Text>
             <Text style={styles.emptyTitle}>No messages yet</Text>
             <Text style={styles.emptyText}>
-              Tap "Message Seller" on a listing or "Message Host" on a rental to start a private chat.
+              Message a seller or host from their listing, or tap someone's name in the Forums.
             </Text>
           </View>
         }
@@ -89,10 +91,13 @@ export default function MessagesScreen() {
               <View style={styles.topRow}>
                 <Text style={[styles.name, item.unread > 0 && styles.bold]} numberOfLines={1}>
                   {item.other_name ?? 'Unknown'}
+                  {item.other_station ? <Text style={styles.station}>  ·  {item.other_station}</Text> : null}
                 </Text>
                 <Text style={styles.time}>{timeAgo(item.last_message_at)}</Text>
               </View>
-              {item.other_station ? <Text style={styles.station}>{item.other_station}</Text> : null}
+              <Text style={styles.subject} numberOfLines={1}>
+                {subjectLabel(item.kind, item.subject_title)}
+              </Text>
               <View style={styles.bottomRow}>
                 <Text style={[styles.preview, item.unread > 0 && styles.previewUnread]} numberOfLines={1}>
                   {item.last_message ?? ''}
@@ -111,6 +116,7 @@ export default function MessagesScreen() {
       <ConversationChat
         conversationId={open?.id ?? null}
         otherName={open?.other_name ?? ''}
+        subtitle={open ? subjectLabel(open.kind, open.subject_title) : undefined}
         onClose={() => {
           setOpen(null);
           load();
@@ -143,9 +149,10 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   name: { fontSize: 16, color: '#111', fontWeight: '600', flex: 1, marginRight: 8 },
   bold: { fontWeight: 'bold' },
+  station: { fontSize: 12, color: '#888', fontWeight: '400' },
   time: { fontSize: 12, color: '#999' },
-  station: { fontSize: 12, color: '#888', marginTop: 1 },
-  bottomRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  subject: { fontSize: 13, color: FIRE_RED, fontWeight: '600', marginTop: 3 },
+  bottomRow: { flexDirection: 'row', alignItems: 'center', marginTop: 3 },
   preview: { fontSize: 14, color: '#777', flex: 1 },
   previewUnread: { color: '#111', fontWeight: '600' },
   badge: {
