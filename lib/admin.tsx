@@ -1,0 +1,63 @@
+import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import { supabase } from './supabase';
+
+export type PendingMember = {
+  id: string;
+  full_name: string | null;
+  station: string | null;
+  employee_id: string | null;
+  rank: string | null;
+  requested_rank: string | null;
+  created_at: string;
+};
+
+type PendingRow = PendingMember & { kind: 'member' | 'rank' };
+
+export async function fetchPending() {
+  const { data, error } = await supabase.rpc('admin_pending');
+  if (error) throw error;
+  const rows = (data ?? []) as PendingRow[];
+  return {
+    newMembers: rows.filter((r) => r.kind === 'member'),
+    rankRequests: rows.filter((r) => r.kind === 'rank'),
+  };
+}
+
+type AdminCountContextType = { count: number; refresh: () => Promise<void> };
+
+const AdminCountContext = createContext<AdminCountContextType>({
+  count: 0,
+  refresh: async () => {},
+});
+
+export function AdminCountProvider({ enabled, children }: { enabled: boolean; children: ReactNode }) {
+  const [count, setCount] = useState(0);
+
+  const refresh = useCallback(async () => {
+    if (!enabled) return;
+    try {
+      const pending = await fetchPending();
+      setCount(pending.newMembers.length + pending.rankRequests.length);
+    } catch {
+      // ignore; the badge will try again on the next refresh
+    }
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!enabled) {
+      setCount(0);
+      return;
+    }
+    refresh();
+    const timer = setInterval(refresh, 30000);
+    return () => clearInterval(timer);
+  }, [enabled, refresh]);
+
+  return (
+    <AdminCountContext.Provider value={{ count, refresh }}>
+      {children}
+    </AdminCountContext.Provider>
+  );
+}
+
+export const useAdminCount = () => useContext(AdminCountContext);

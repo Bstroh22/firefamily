@@ -1,0 +1,1 @@
+export const RANKS = ['BLS FF', 'FF/PM', 'FAE', 'CAPTAIN'];
