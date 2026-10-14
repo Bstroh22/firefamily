@@ -15,7 +15,7 @@ type PendingRow = PendingMember & { kind: 'member' | 'rank' };
 
 export type OpenReport = {
   id: string;
-  target_kind: 'listing' | 'rental' | 'forum_message' | 'direct_message';
+  target_kind: 'listing' | 'rental' | 'forum_message' | 'direct_message' | 'contractor';
   target_id: string;
   content_snapshot: string | null;
   reason: string;

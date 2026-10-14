@@ -13,7 +13,7 @@ import { supabase } from './supabase';
 
 const FIRE_RED = '#C8102E';
 
-export type ReportKind = 'listing' | 'rental' | 'forum_message' | 'direct_message';
+export type ReportKind = 'listing' | 'rental' | 'forum_message' | 'direct_message' | 'contractor';
 
 const REASONS = [
   'Spam or scam',
@@ -27,7 +27,7 @@ const KIND_LABEL: Record<ReportKind, string> = {
   listing: 'listing',
   rental: 'rental',
   forum_message: 'message',
-  direct_message: 'message',
+  direct_message: 'message', contractor: 'contractor',
 };
 
 type ModalProps = {

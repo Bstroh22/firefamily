@@ -25,7 +25,7 @@ const KIND_LABEL: Record<OpenReport['target_kind'], string> = {
   listing: '🛒 Marketplace listing',
   rental: '🏡 Rental',
   forum_message: '💬 Forum message',
-  direct_message: '✉️ Private message',
+  direct_message: '✉️ Private message', contractor: '🧰 Contractor',
 };
 
 export default function AdminScreen() {

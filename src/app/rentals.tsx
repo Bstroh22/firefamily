@@ -1,3 +1,4 @@
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -23,7 +24,7 @@ export default function RentalsScreen() {
   const [rentals, setRentals] = useState<Rental[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [showNew, setShowNew] = useState(false);
+  const [showNew, setShowNew] = useState(false); const params = useLocalSearchParams<{ new?: string }>(); useEffect(() => { if (params.new) { setShowNew(true); router.setParams({ new: undefined }); } }, [params.new]);
   const [selected, setSelected] = useState<Rental | null>(null); const [editing, setEditing] = useState<Rental | null>(null);
   const [query, setQuery] = useState('');
 
