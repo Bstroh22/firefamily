@@ -7,7 +7,7 @@ export type PendingMember = {
   station: string | null;
   employee_id: string | null;
   rank: string | null;
-  requested_rank: string | null;
+  requested_rank: string | null; avatar_url: string | null;
   created_at: string;
 };
 

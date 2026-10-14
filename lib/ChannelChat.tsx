@@ -13,6 +13,7 @@ import {
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ChannelHere } from './activity';
 import { useAuth } from './auth';
+import Avatar from './Avatar';
 import ConversationChat from './ConversationChat';
 import { startConversation } from './messages';
 import { ReportModal } from './ReportButton';
@@ -22,6 +23,7 @@ const FIRE_RED = '#C8102E';
 const REFRESH_MS = 5000;
 const TYPING_SEND_EVERY_MS = 2000;
 const TYPING_EXPIRES_MS = 4000;
+const MESSAGE_FIELDS = 'id, body, created_at, author_id, author:profiles(full_name, station, avatar_url)';
 
 export type Channel = { id: string; name: string; description: string | null };
 
@@ -30,7 +32,7 @@ type Message = {
   body: string;
   created_at: string;
   author_id: string;
-  author: { full_name: string | null; station: string | null } | null;
+  author: { full_name: string | null; station: string | null; avatar_url: string | null } | null;
 };
 
 type Typer = { name: string; at: number };
@@ -51,10 +53,11 @@ function typingLabel(names: string[]) {
 
 type Props = {
   channel: Channel | null;
+  initialQuery?: string;
   onClose: () => void;
 };
 
-export default function ChannelChat({ channel, onClose }: Props) {
+export default function ChannelChat({ channel, initialQuery, onClose }: Props) {
   const { session, profile } = useAuth();
   const myId = session?.user.id;
   const [messages, setMessages] = useState<Message[]>([]);
@@ -62,7 +65,13 @@ export default function ChannelChat({ channel, onClose }: Props) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [typers, setTypers] = useState<Record<string, Typer>>({});
-  const [directChat, setDirectChat] = useState<{ id: string; name: string } | null>(null); const [reportId, setReportId] = useState<string | null>(null);
+  const [directChat, setDirectChat] = useState<{ id: string; name: string } | null>(null);
+  const [reportId, setReportId] = useState<string | null>(null);
+
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<Message[]>([]);
+  const [searching, setSearching] = useState(false);
 
   const liveRef = useRef<RealtimeChannel | null>(null);
   const lastTypingSentRef = useRef(0);
@@ -71,7 +80,7 @@ export default function ChannelChat({ channel, onClose }: Props) {
     if (!channel) return;
     const { data, error } = await supabase
       .from('forum_messages')
-      .select('id, body, created_at, author_id, author:profiles(full_name, station)')
+      .select(MESSAGE_FIELDS)
       .eq('channel_id', channel.id)
       .order('created_at', { ascending: false })
       .limit(100);
@@ -79,16 +88,45 @@ export default function ChannelChat({ channel, onClose }: Props) {
     setLoading(false);
   }, [channel]);
 
+  // Open the channel (and start in search mode if we came from a search)
   useEffect(() => {
     if (!channel) return;
     setLoading(true);
     setMessages([]);
     setDirectChat(null);
+    setSearchOpen(!!initialQuery);
+    setQuery(initialQuery ?? '');
+    setResults([]);
     loadMessages();
     const timer = setInterval(loadMessages, REFRESH_MS);
     return () => clearInterval(timer);
-  }, [channel, loadMessages]);
+  }, [channel, initialQuery, loadMessages]);
 
+  // Search this channel's full history
+  useEffect(() => {
+    if (!channel || !searchOpen) return;
+    const q = query.trim();
+    if (q.length < 2) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      const { data, error } = await supabase
+        .from('forum_messages')
+        .select(MESSAGE_FIELDS)
+        .eq('channel_id', channel.id)
+        .ilike('body', `%${q}%`)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (!error) setResults((data as any) ?? []);
+      setSearching(false);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [query, searchOpen, channel]);
+
+  // Live "is typing" signals
   useEffect(() => {
     if (!channel) return;
 
@@ -201,16 +239,72 @@ export default function ChannelChat({ channel, onClose }: Props) {
     ]);
   }
 
+  function toggleSearch() {
+    if (searchOpen) {
+      setSearchOpen(false);
+      setQuery('');
+      setResults([]);
+    } else {
+      setSearchOpen(true);
+    }
+  }
+
   if (!channel) return null;
 
   const typingText = typingLabel(Object.values(typers).map((t) => t.name));
+
+  function renderMessage({ item }: { item: Message }) {
+    const mine = item.author_id === myId;
+    const authorLine = `${item.author?.full_name ?? 'Unknown'}${item.author?.station ? ` · ${item.author.station}` : ''}`;
+
+    if (mine) {
+      return (
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onLongPress={() => confirmDelete(item)}
+          style={[styles.row, styles.rowMine]}
+        >
+          <Text style={[styles.author, styles.authorMine]}>{authorLine}</Text>
+          <View style={[styles.bubble, styles.bubbleMine]}>
+            <Text style={[styles.body, styles.bodyMine]}>{item.body}</Text>
+          </View>
+          <Text style={[styles.time, { textAlign: 'right' }]}>{formatTime(item.created_at)}</Text>
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <View style={styles.theirsWrap}>
+        <TouchableOpacity onPress={() => confirmDirectMessage(item)} style={styles.avatarTap}>
+          <Avatar uri={item.author?.avatar_url} name={item.author?.full_name} size={34} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onLongPress={() => setReportId(item.id)}
+          style={[styles.row, styles.rowTheirs]}
+        >
+          <Text
+            style={[styles.author, styles.authorTappable]}
+            onPress={() => confirmDirectMessage(item)}
+            suppressHighlighting
+          >
+            {authorLine}
+          </Text>
+          <View style={[styles.bubble, styles.bubbleTheirs]}>
+            <Text style={styles.body}>{item.body}</Text>
+          </View>
+          <Text style={styles.time}>{formatTime(item.created_at)}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
       <SafeAreaProvider>
         <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={onClose} style={styles.backButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <TouchableOpacity onPress={onClose} style={styles.headerSide} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <Text style={styles.back}>‹ Back</Text>
             </TouchableOpacity>
             <View style={{ flex: 1, alignItems: 'center' }}>
@@ -220,14 +314,59 @@ export default function ChannelChat({ channel, onClose }: Props) {
                 <Text style={styles.headerSub} numberOfLines={1}>{channel.description}</Text>
               ) : null}
             </View>
-            <View style={{ width: 70 }} />
+            <TouchableOpacity onPress={toggleSearch} style={[styles.headerSide, { alignItems: 'flex-end' }]} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Text style={styles.searchToggle}>{searchOpen ? 'Done' : '🔍'}</Text>
+            </TouchableOpacity>
           </View>
 
-          <KeyboardAvoidingView
-            style={{ flex: 1 }}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          >
-            {loading ? (
+          {searchOpen && (
+            <View style={styles.searchWrap}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder={`Search #${channel.name}`}
+                placeholderTextColor="#888"
+                value={query}
+                onChangeText={setQuery}
+                autoFocus={!initialQuery}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="search"
+              />
+              {query.length > 0 && (
+                <TouchableOpacity onPress={() => setQuery('')}>
+                  <Text style={styles.clear}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            {searchOpen ? (
+              <FlatList
+                data={results}
+                keyExtractor={(m) => m.id}
+                keyboardDismissMode="on-drag"
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={results.length === 0 ? styles.emptyContainer : styles.list}
+                ListEmptyComponent={
+                  <View style={styles.empty}>
+                    {searching ? (
+                      <ActivityIndicator color={FIRE_RED} />
+                    ) : (
+                      <>
+                        <Text style={{ fontSize: 40 }}>🔍</Text>
+                        <Text style={styles.emptyText}>
+                          {query.trim().length < 2
+                            ? 'Type at least 2 letters to search this channel.'
+                            : 'No messages match your search.'}
+                        </Text>
+                      </>
+                    )}
+                  </View>
+                }
+                renderItem={renderMessage}
+              />
+            ) : loading ? (
               <View style={styles.center}>
                 <ActivityIndicator size="large" color={FIRE_RED} />
               </View>
@@ -245,58 +384,40 @@ export default function ChannelChat({ channel, onClose }: Props) {
                     <Text style={styles.emptyText}>Start the conversation in #{channel.name}.</Text>
                   </View>
                 }
-                renderItem={({ item }) => {
-                  const mine = item.author_id === myId;
-                  return (
-                    <TouchableOpacity
-                      activeOpacity={0.8}
-                      onLongPress={mine ? () => confirmDelete(item) : () => setReportId(item.id)}
-                      style={[styles.row, mine ? styles.rowMine : styles.rowTheirs]}
-                    >
-                      <Text
-                        style={[styles.author, mine ? styles.authorMine : styles.authorTappable]}
-                        onPress={mine ? undefined : () => confirmDirectMessage(item)}
-                        suppressHighlighting
-                      >
-                        {item.author?.full_name ?? 'Unknown'}
-                        {item.author?.station ? ` · ${item.author.station}` : ''}
-                      </Text>
-                      <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}>
-                        <Text style={[styles.body, mine && styles.bodyMine]}>{item.body}</Text>
-                      </View>
-                      <Text style={[styles.time, mine && { textAlign: 'right' }]}>{formatTime(item.created_at)}</Text>
-                    </TouchableOpacity>
-                  );
-                }}
+                renderItem={renderMessage}
               />
             )}
 
-            {typingText ? (
+            {!searchOpen && typingText ? (
               <View style={styles.typingBar}>
                 <Text style={styles.typingText}>{typingText}</Text>
               </View>
             ) : null}
 
-            <View style={styles.inputBar}>
-              <TextInput
-                style={styles.input}
-                placeholder={`Message #${channel.name}`}
-                placeholderTextColor="#888"
-                value={text}
-                onChangeText={handleTextChange}
-                multiline
-              />
-              <TouchableOpacity
-                style={[styles.sendButton, (!text.trim() || sending) && { opacity: 0.4 }]}
-                onPress={send}
-                disabled={!text.trim() || sending}
-              >
-                {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendText}>Send</Text>}
-              </TouchableOpacity>
-            </View>
+            {!searchOpen && (
+              <View style={styles.inputBar}>
+                <TextInput
+                  style={styles.input}
+                  placeholder={`Message #${channel.name}`}
+                  placeholderTextColor="#888"
+                  value={text}
+                  onChangeText={handleTextChange}
+                  multiline
+                />
+                <TouchableOpacity
+                  style={[styles.sendButton, (!text.trim() || sending) && { opacity: 0.4 }]}
+                  onPress={send}
+                  disabled={!text.trim() || sending}
+                >
+                  {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendText}>Send</Text>}
+                </TouchableOpacity>
+              </View>
+            )}
           </KeyboardAvoidingView>
         </SafeAreaView>
-      </SafeAreaProvider><ReportModal kind="forum_message" targetId={reportId} onClose={() => setReportId(null)} />
+      </SafeAreaProvider>
+
+      <ReportModal kind="forum_message" targetId={reportId} onClose={() => setReportId(null)} />
 
       <ConversationChat
         conversationId={directChat?.id ?? null}
@@ -314,18 +435,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10,
     borderBottomWidth: 1, borderBottomColor: '#eee', backgroundColor: '#fff',
   },
-  backButton: { width: 70, paddingVertical: 4 },
+  headerSide: { width: 70, paddingVertical: 4 },
   back: { color: FIRE_RED, fontSize: 17, fontWeight: '600' },
+  searchToggle: { color: FIRE_RED, fontSize: 18, fontWeight: '600' },
   headerTitle: { fontSize: 17, fontWeight: 'bold', color: '#111' },
   headerSub: { fontSize: 12, color: '#888', marginTop: 2 },
+  searchWrap: {
+    flexDirection: 'row', alignItems: 'center', margin: 10, paddingHorizontal: 12,
+    borderRadius: 10, borderWidth: 1, borderColor: '#ddd', backgroundColor: '#fafafa',
+  },
+  searchInput: { flex: 1, paddingVertical: 10, fontSize: 16, color: '#111' },
+  clear: { fontSize: 16, color: '#888', paddingHorizontal: 6 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list: { padding: 12 },
   emptyContainer: { flexGrow: 1 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   emptyTitle: { fontSize: 20, fontWeight: 'bold', color: FIRE_RED, marginTop: 10 },
-  emptyText: { fontSize: 15, color: '#666', marginTop: 4, textAlign: 'center' },
-  row: { marginVertical: 5, maxWidth: '80%' },
-  rowMine: { alignSelf: 'flex-end' },
+  emptyText: { fontSize: 15, color: '#666', marginTop: 6, textAlign: 'center' },
+  theirsWrap: { flexDirection: 'row', alignItems: 'flex-end', marginVertical: 5 },
+  avatarTap: { marginRight: 8, marginBottom: 18 },
+  row: { maxWidth: '78%' },
+  rowMine: { alignSelf: 'flex-end', marginVertical: 5 },
   rowTheirs: { alignSelf: 'flex-start' },
   author: { fontSize: 12, color: '#666', fontWeight: '600', marginBottom: 3, marginLeft: 4 },
   authorMine: { textAlign: 'right', marginLeft: 0, marginRight: 4 },

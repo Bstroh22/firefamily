@@ -3,6 +3,7 @@ import { ActivityIndicator, Text, View } from 'react-native';
 import { AdminCountProvider, useAdminCount } from '../../lib/admin';
 import { AuthProvider, useAuth } from '../../lib/auth';
 import AuthScreen from '../../lib/AuthScreen';
+import AvatarRequiredScreen from '../../lib/AvatarRequiredScreen';
 import { UnreadMessagesProvider, useUnreadMessages } from '../../lib/messages';
 import PendingScreen from '../../lib/PendingScreen';
 import { supabase } from '../../lib/supabase';
@@ -96,7 +97,7 @@ function AppGate() {
   }
 
   if (!session) return <AuthScreen />;
-  if (!profile || profile.verification_status !== 'approved') return <PendingScreen />;
+  if (profile && !profile.avatar_url) return <AvatarRequiredScreen />; if (!profile || profile.verification_status !== 'approved') return <PendingScreen />;
 
   return (
     <AdminCountProvider enabled={!!profile.is_admin}>

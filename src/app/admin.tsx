@@ -14,6 +14,7 @@ import {
   fetchPending, fetchReports, OpenReport, PendingMember, useAdminCount,
 } from '../../lib/admin';
 import { useAuth } from '../../lib/auth';
+import Avatar from '../../lib/Avatar';
 import { timeAgo } from '../../lib/ListingDetailModal';
 import { supabase } from '../../lib/supabase';
 
@@ -234,7 +235,7 @@ export default function AdminScreen() {
           <Text style={styles.sectionLabel}>New members ({newMembers.length})</Text>
           {newMembers.map((m) => (
             <View key={m.id} style={styles.card}>
-              <Text style={styles.name}>{m.full_name ?? 'Unknown'}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}><Avatar uri={m.avatar_url} name={m.full_name} size={56} /><Text style={[styles.name, { marginLeft: 12, flex: 1 }]}>{m.full_name ?? 'Unknown'}</Text></View>
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Employee ID</Text>
                 <Text style={styles.detailValue}>{m.employee_id ?? '—'}</Text>
@@ -271,7 +272,7 @@ export default function AdminScreen() {
           <Text style={styles.sectionLabel}>Position changes ({rankRequests.length})</Text>
           {rankRequests.map((m) => (
             <View key={m.id} style={styles.card}>
-              <Text style={styles.name}>{m.full_name ?? 'Unknown'}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}><Avatar uri={m.avatar_url} name={m.full_name} size={56} /><Text style={[styles.name, { marginLeft: 12, flex: 1 }]}>{m.full_name ?? 'Unknown'}</Text></View>
               <Text style={styles.station}>{m.station ?? ''}</Text>
               <View style={styles.changeRow}>
                 <Text style={styles.oldRank}>{m.rank ?? 'None'}</Text>

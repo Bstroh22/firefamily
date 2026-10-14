@@ -11,7 +11,7 @@ export type Profile = {
   verification_status: 'pending' | 'approved' | 'rejected';
   is_admin: boolean;
   rank: string | null;
-  requested_rank: string | null;
+  requested_rank: string | null; avatar_url: string | null;
 };
 
 type AuthContextType = {

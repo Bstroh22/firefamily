@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Text, TextInput, TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text, TextInput, TouchableOpacity,
+  View,
 } from 'react-native';
 import { useAuth } from '../../lib/auth';
+import Avatar, { askPhotoSource, chooseAndUploadAvatar } from '../../lib/Avatar';
 import { RANKS } from '../../lib/ranks';
 import { supabase } from '../../lib/supabase';
 
@@ -18,6 +19,7 @@ export default function ProfileScreen() {
   const [station, setStation] = useState('');
   const [selectedRank, setSelectedRank] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   useEffect(() => {
     setStation(profile?.station ?? '');
@@ -34,6 +36,20 @@ export default function ProfileScreen() {
 
   const hasPendingRequest = !!profile.requested_rank && profile.requested_rank !== profile.rank;
 
+  function changePhoto() {
+    askPhotoSource(async (source) => {
+      setPhotoBusy(true);
+      try {
+        const url = await chooseAndUploadAvatar(source);
+        if (url) await refreshProfile();
+      } catch (e: any) {
+        Alert.alert('Could not save photo', e.message);
+      } finally {
+        setPhotoBusy(false);
+      }
+    });
+  }
+
   async function save() {
     if (!profile) return;
     const updates: Record<string, any> = { station: station.trim() || null };
@@ -43,7 +59,7 @@ export default function ProfileScreen() {
       updates.requested_rank = selectedRank;
       requestedChange = selectedRank !== profile.requested_rank;
     } else if (selectedRank === profile.rank && profile.requested_rank) {
-      updates.requested_rank = null; // cancels a pending request
+      updates.requested_rank = null;
     }
 
     setSaving(true);
@@ -66,9 +82,25 @@ export default function ProfileScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
       <View style={styles.card}>
-        <Text style={styles.name}>{profile.full_name ?? 'Unknown'}</Text>
-        <Text style={styles.sub}>{session?.user.email}</Text>
-        {profile.is_admin && <Text style={styles.adminBadge}>ADMIN</Text>}
+        <View style={styles.photoRow}>
+          <TouchableOpacity onPress={changePhoto} disabled={photoBusy}>
+            {photoBusy ? (
+              <View style={styles.photoBusy}>
+                <ActivityIndicator color={FIRE_RED} />
+              </View>
+            ) : (
+              <Avatar uri={profile.avatar_url} name={profile.full_name} size={80} />
+            )}
+          </TouchableOpacity>
+          <View style={{ flex: 1, marginLeft: 16 }}>
+            <Text style={styles.name}>{profile.full_name ?? 'Unknown'}</Text>
+            <Text style={styles.sub}>{session?.user.email}</Text>
+            {profile.is_admin && <Text style={styles.adminBadge}>ADMIN</Text>}
+            <TouchableOpacity onPress={changePhoto} disabled={photoBusy}>
+              <Text style={styles.changePhoto}>Change photo</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Employee ID</Text>
@@ -130,12 +162,18 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  name: { fontSize: 22, fontWeight: 'bold', color: '#111' },
-  sub: { fontSize: 14, color: '#777', marginTop: 2 },
+  photoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  photoBusy: {
+    width: 80, height: 80, borderRadius: 40, backgroundColor: '#f4f4f4',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  name: { fontSize: 21, fontWeight: 'bold', color: '#111' },
+  sub: { fontSize: 13, color: '#777', marginTop: 2 },
   adminBadge: {
-    alignSelf: 'flex-start', marginTop: 8, fontSize: 11, fontWeight: 'bold', color: '#fff',
+    alignSelf: 'flex-start', marginTop: 6, fontSize: 11, fontWeight: 'bold', color: '#fff',
     backgroundColor: FIRE_RED, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, overflow: 'hidden',
   },
+  changePhoto: { color: FIRE_RED, fontSize: 14, fontWeight: '600', marginTop: 8 },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 14 },
   infoLabel: { fontSize: 15, color: '#777' },
   infoValue: { fontSize: 15, color: '#111', fontWeight: '600' },
