@@ -15,8 +15,8 @@ export default function PendingScreen() {
       <Text style={styles.title}>{rejected ? 'Verification not approved' : 'Verification pending'}</Text>
       <Text style={styles.body}>
         {rejected
-          ? 'We could not verify your OCFA employment. Contact the FireFamily admin if you think this is a mistake.'
-          : `Thanks${profile?.full_name ? ', ' + profile.full_name : ''}! An admin is confirming that you're an OCFA employee. You'll get full access as soon as you're approved.`}
+          ? 'We could not verify your fire department employment. Contact the FireFamily admin if you think this is a mistake.'
+          : `Thanks${profile?.full_name ? ', ' + profile.full_name : ''}! An admin is confirming your fire department employment. You'll get full access as soon as you're approved.`}
       </Text>
 
       <TouchableOpacity style={styles.button} onPress={refreshProfile}>
