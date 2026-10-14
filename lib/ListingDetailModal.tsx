@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import ConversationChat from './ConversationChat';
 import { startConversation } from './messages';
+import ReportButton from './ReportButton';
 
 const FIRE_RED = '#C8102E';
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -135,7 +136,7 @@ export default function ListingDetailModal({ listing, isMine, onClose, onEdit, o
             </TouchableOpacity>
           )}
 
-          {isMine && (
+          {!isMine && <ReportButton kind="listing" targetId={listing.id} />}{isMine && (
             <View style={{ marginTop: 28 }}>
               <TouchableOpacity style={styles.primaryButton} onPress={() => onEdit(listing)}>
                 <Text style={styles.primaryButtonText}>✏️ Edit Listing</Text>

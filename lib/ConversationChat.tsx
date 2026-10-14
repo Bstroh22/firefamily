@@ -12,6 +12,7 @@ import {
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from './auth';
 import { useUnreadMessages } from './messages';
+import { ReportModal } from './ReportButton';
 import { supabase } from './supabase';
 
 const FIRE_RED = '#C8102E';
@@ -46,7 +47,7 @@ export default function ConversationChat({ conversationId, otherName, subtitle, 
   const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState('');
-  const [sending, setSending] = useState(false);
+  const [sending, setSending] = useState(false); const [reportId, setReportId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!conversationId) return;
@@ -145,7 +146,7 @@ export default function ConversationChat({ conversationId, otherName, subtitle, 
                   return (
                     <TouchableOpacity
                       activeOpacity={0.8}
-                      onLongPress={mine ? () => confirmDelete(item) : undefined}
+                      onLongPress={mine ? () => confirmDelete(item) : () => setReportId(item.id)}
                       style={[styles.row, mine ? styles.rowMine : styles.rowTheirs]}
                     >
                       <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}>
@@ -177,7 +178,7 @@ export default function ConversationChat({ conversationId, otherName, subtitle, 
             </View>
           </KeyboardAvoidingView>
         </SafeAreaView>
-      </SafeAreaProvider>
+      </SafeAreaProvider><ReportModal kind="direct_message" targetId={reportId} onClose={() => setReportId(null)} />
     </Modal>
   );
 }

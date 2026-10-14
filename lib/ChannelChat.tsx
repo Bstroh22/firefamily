@@ -15,6 +15,7 @@ import { ChannelHere } from './activity';
 import { useAuth } from './auth';
 import ConversationChat from './ConversationChat';
 import { startConversation } from './messages';
+import { ReportModal } from './ReportButton';
 import { supabase } from './supabase';
 
 const FIRE_RED = '#C8102E';
@@ -61,7 +62,7 @@ export default function ChannelChat({ channel, onClose }: Props) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [typers, setTypers] = useState<Record<string, Typer>>({});
-  const [directChat, setDirectChat] = useState<{ id: string; name: string } | null>(null);
+  const [directChat, setDirectChat] = useState<{ id: string; name: string } | null>(null); const [reportId, setReportId] = useState<string | null>(null);
 
   const liveRef = useRef<RealtimeChannel | null>(null);
   const lastTypingSentRef = useRef(0);
@@ -249,7 +250,7 @@ export default function ChannelChat({ channel, onClose }: Props) {
                   return (
                     <TouchableOpacity
                       activeOpacity={0.8}
-                      onLongPress={mine ? () => confirmDelete(item) : undefined}
+                      onLongPress={mine ? () => confirmDelete(item) : () => setReportId(item.id)}
                       style={[styles.row, mine ? styles.rowMine : styles.rowTheirs]}
                     >
                       <Text
@@ -295,7 +296,7 @@ export default function ChannelChat({ channel, onClose }: Props) {
             </View>
           </KeyboardAvoidingView>
         </SafeAreaView>
-      </SafeAreaProvider>
+      </SafeAreaProvider><ReportModal kind="forum_message" targetId={reportId} onClose={() => setReportId(null)} />
 
       <ConversationChat
         conversationId={directChat?.id ?? null}
