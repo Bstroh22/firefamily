@@ -172,7 +172,7 @@ export default function HomeScreen() {
           <Tile icon="🏷️" label="Sell" onPress={() => router.push({ pathname: '/marketplace', params: { new: '1' } })} />
           <Tile icon="🏡" label="List rental" onPress={() => router.push({ pathname: '/rentals', params: { new: '1' } })} />
           <Tile icon="✉️" label="Messages" badge={unread} onPress={() => router.push('/messages')} />
-          <Tile icon="🧰" label="Contractors" onPress={() => router.push('/contractors')} />
+          <Tile icon="🤝" label="Referrals" onPress={() => router.push('/contractors')} />
         </View>
 
         {/* Admin card */}

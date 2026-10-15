@@ -15,13 +15,13 @@ import { supabase } from './supabase';
 const FIRE_RED = '#C8102E';
 
 export const TRADES = [
-  'General', 'Plumbing', 'Electrical', 'HVAC', 'Roofing', 'Painting',
-  'Landscaping', 'Pool', 'Flooring', 'Handyman', 'Pest', 'Other',
+  'General Contractor', 'Plumbing', 'Electrical', 'HVAC', 'Roofing', 'Painting', 'Solar',
+  'Landscaping', 'Pool', 'Flooring', 'Handyman', 'Pest Control', 'Auto Repair', 'Real Estate', 'Mortgage', 'Insurance', 'Financial / CPA', 'Legal', 'Veterinary', 'Moving', 'Other',
 ];
 
 export const SPECIALTIES = [
   'Primary Care', 'Orthopedics', 'Sports Medicine', 'Physical Therapy', 'Chiropractic',
-  'Dermatology', 'Dental', 'Eye Care', 'Mental Health', 'Cardiology', 'Urgent Care', 'Other',
+  'Dermatology', 'Dental', 'Eye Care', 'Mental Health', 'Cardiology', 'ENT', 'Pediatrics', "Women's Health", 'Podiatry', 'Pain Management', 'Massage', 'Nutrition', 'Urgent Care', 'Other',
 ];
 
 export type ProCategory = 'home' | 'health';

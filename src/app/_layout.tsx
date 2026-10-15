@@ -69,9 +69,9 @@ function MainTabs() {
       <Tabs.Screen
         name="contractors"
         options={{
-          title: 'Trusted Pros',
-          tabBarLabel: 'Pros',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🧰" focused={focused} />,
+          title: 'Trusted Referrals',
+          tabBarLabel: 'Referrals',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="🤝" focused={focused} />,
         }}
       />
       <Tabs.Screen

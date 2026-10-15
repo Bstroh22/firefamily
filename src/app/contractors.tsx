@@ -248,7 +248,7 @@ export default function ProsScreen() {
     <View style={styles.container}>
       <View style={styles.segment}>
         <TouchableOpacity style={[styles.segmentItem, !isHealth && styles.segmentActive]} onPress={() => switchSection('home')}>
-          <Text style={[styles.segmentText, !isHealth && styles.segmentTextActive]}>🧰 Home & Property</Text>
+          <Text style={[styles.segmentText, !isHealth && styles.segmentTextActive]}>🧰 Home & Services</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.segmentItem, isHealth && styles.segmentActive]} onPress={() => switchSection('health')}>
           <Text style={[styles.segmentText, isHealth && styles.segmentTextActive]}>🩺 Health & Wellness</Text>
@@ -259,7 +259,7 @@ export default function ProsScreen() {
         <Text style={{ fontSize: 16, marginRight: 8 }}>🔍</Text>
         <TextInput
           style={styles.searchInput}
-          placeholder={isHealth ? 'Search doctor, specialty, insurance' : 'Search name, trade, area'}
+          placeholder={isHealth ? 'Search doctor, specialty, insurance' : 'Search name, service, area'}
           placeholderTextColor="#888"
           value={query}
           onChangeText={setQuery}
@@ -297,7 +297,7 @@ export default function ProsScreen() {
             <Text style={styles.intro}>
               {isHealth
                 ? 'Doctors and providers recommended by the fire family. Member recommendations, not medical advice.'
-                : 'Trusted pros for your home and property, recommended by the fire family.'}
+                : 'Know a plumber, mechanic, realtor, or CPA you trust?'}
             </Text>
           ) : null
         }
@@ -310,7 +310,7 @@ export default function ProsScreen() {
                 ? 'Try a different search or filter.'
                 : isHealth
                 ? 'Know a great ortho, dermatologist, or PT? Recommend them for the fire family.'
-                : 'Know a plumber, electrician, or roofer you trust? Recommend them for the fire family.'}
+                : 'Know a plumber, mechanic, realtor, or CPA you trust? Recommend them for the fire family.'}
             </Text>
           </View>
         }
