@@ -1,3 +1,4 @@
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,10 +12,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ActiveNow } from '../../lib/activity';
 import Avatar from '../../lib/Avatar';
 import ChannelChat, { Channel } from '../../lib/ChannelChat';
 import { timeAgo } from '../../lib/ListingDetailModal';
+import { ActiveNow } from '../../lib/activity';
+import { useForumUnread } from '../../lib/forumUnread';
 import { supabase } from '../../lib/supabase';
 
 const FIRE_RED = '#C8102E';
@@ -29,6 +31,7 @@ type SearchHit = {
 };
 
 export default function ForumsScreen() {
+  const { counts, refresh: refreshUnread } = useForumUnread();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -57,6 +60,12 @@ export default function ForumsScreen() {
   useEffect(() => {
     loadChannels();
   }, [loadChannels]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshUnread();
+    }, [refreshUnread])
+  );
 
   // Search messages across every channel this member can see
   useEffect(() => {
@@ -106,6 +115,7 @@ export default function ForumsScreen() {
   }
 
   function renderChannel(item: Channel) {
+    const unread = counts[item.id] ?? 0;
     return (
       <TouchableOpacity
         key={item.id}
@@ -119,12 +129,18 @@ export default function ForumsScreen() {
           <Text style={styles.hash}>#</Text>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.channelName}>{item.name}</Text>
+          <Text style={[styles.channelName, unread > 0 && styles.channelNameUnread]}>{item.name}</Text>
           {item.description ? (
             <Text style={styles.channelDesc} numberOfLines={1}>{item.description}</Text>
           ) : null}
         </View>
-        <Text style={styles.chevron}>›</Text>
+        {unread > 0 ? (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{unread > 99 ? '99+' : unread}</Text>
+          </View>
+        ) : (
+          <Text style={styles.chevron}>›</Text>
+        )}
       </TouchableOpacity>
     );
   }
@@ -198,6 +214,7 @@ export default function ForumsScreen() {
               onRefresh={() => {
                 setRefreshing(true);
                 loadChannels();
+                refreshUnread();
               }}
               tintColor={FIRE_RED}
             />
@@ -263,9 +280,15 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', marginRight: 12,
   },
   hash: { fontSize: 22, fontWeight: 'bold', color: FIRE_RED },
-  channelName: { fontSize: 17, fontWeight: 'bold', color: '#111' },
+  channelName: { fontSize: 17, fontWeight: '600', color: '#111' },
+  channelNameUnread: { fontWeight: '800' },
   channelDesc: { fontSize: 13, color: '#777', marginTop: 2 },
   chevron: { fontSize: 26, color: '#ccc', marginLeft: 8 },
+  badge: {
+    backgroundColor: FIRE_RED, borderRadius: 12, minWidth: 24, height: 24,
+    paddingHorizontal: 7, alignItems: 'center', justifyContent: 'center', marginLeft: 8,
+  },
+  badgeText: { color: '#fff', fontSize: 13, fontWeight: 'bold' },
   hitCard: {
     flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 10,
     shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, shadowOffset: { width: 0, height: 2 },

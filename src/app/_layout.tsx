@@ -6,8 +6,10 @@ import { AdminCountProvider } from '../../lib/admin';
 import { AuthProvider, useAuth } from '../../lib/auth';
 import AuthScreen from '../../lib/AuthScreen';
 import AvatarRequiredScreen from '../../lib/AvatarRequiredScreen';
+import { ForumUnreadProvider, useForumUnread } from '../../lib/forumUnread';
 import { UnreadMessagesProvider } from '../../lib/messages';
 import PendingScreen from '../../lib/PendingScreen';
+
 SplashScreen.preventAutoHideAsync();
 
 const FIRE_RED = '#C8102E';
@@ -29,6 +31,8 @@ function BackHome() {
 }
 
 function MainTabs() {
+  const { total: forumUnread } = useForumUnread();
+
   return (
     <Tabs
       screenOptions={{
@@ -65,7 +69,7 @@ function MainTabs() {
       <Tabs.Screen
         name="contractors"
         options={{
-          title: 'Contractors',
+          title: 'Trusted Pros',
           tabBarLabel: 'Pros',
           tabBarIcon: ({ focused }) => <TabIcon emoji="🧰" focused={focused} />,
         }}
@@ -74,6 +78,7 @@ function MainTabs() {
         name="forums"
         options={{
           title: 'Forums',
+          tabBarBadge: forumUnread > 0 ? (forumUnread > 99 ? '99+' : forumUnread) : undefined,
           tabBarIcon: ({ focused }) => <TabIcon emoji="💬" focused={focused} />,
         }}
       />
@@ -94,7 +99,14 @@ function MainTabs() {
 }
 
 function AppGate() {
-  const { session, profile, loading } = useAuth(); useEffect(() => { if (!loading) { const t = setTimeout(() => SplashScreen.hideAsync(), 800); return () => clearTimeout(t); } }, [loading]);
+  const { session, profile, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading) {
+      const t = setTimeout(() => SplashScreen.hideAsync(), 800);
+      return () => clearTimeout(t);
+    }
+  }, [loading]);
 
   if (loading) {
     return (
@@ -111,7 +123,9 @@ function AppGate() {
   return (
     <AdminCountProvider enabled={!!profile.is_admin}>
       <UnreadMessagesProvider>
-        <MainTabs />
+        <ForumUnreadProvider>
+          <MainTabs />
+        </ForumUnreadProvider>
       </UnreadMessagesProvider>
     </AdminCountProvider>
   );

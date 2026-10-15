@@ -17,7 +17,11 @@ import {
 import { useAuth } from '../../lib/auth';
 import Avatar from '../../lib/Avatar';
 import { timeAgo } from '../../lib/ListingDetailModal';
-import NewContractorModal, { Contractor, TRADES } from '../../lib/NewContractorModal';
+import NewContractorModal, {
+    Contractor, ProCategory,
+    SPECIALTIES,
+    TRADES,
+} from '../../lib/NewContractorModal';
 import ReportButton from '../../lib/ReportButton';
 import { supabase } from '../../lib/supabase';
 
@@ -32,7 +36,7 @@ function RecommendButton({ item, onPress }: { item: Contractor; onPress: () => v
     <TouchableOpacity
       onPress={onPress}
       style={[styles.recButton, item.i_recommend && styles.recButtonOn]}
-      accessibilityLabel={item.i_recommend ? 'Remove your recommendation' : 'Recommend this contractor'}
+      accessibilityLabel={item.i_recommend ? 'Remove your recommendation' : 'Recommend'}
     >
       <Text style={[styles.recText, item.i_recommend && styles.recTextOn]}>👍 {item.rec_count}</Text>
     </TouchableOpacity>
@@ -48,11 +52,12 @@ type DetailProps = {
   onDelete: (c: Contractor) => void;
 };
 
-function ContractorDetail({ item, isMine, onClose, onToggle, onEdit, onDelete }: DetailProps) {
+function ProDetail({ item, isMine, onClose, onToggle, onEdit, onDelete }: DetailProps) {
   if (!item) return null;
+  const isHealth = item.category === 'health';
 
   function confirmDelete() {
-    Alert.alert('Remove contractor?', 'This removes it for everyone, including all recommendations.', [
+    Alert.alert('Remove recommendation?', 'This removes it for everyone, including all 👍.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: () => onDelete(item!) },
     ]);
@@ -64,7 +69,7 @@ function ContractorDetail({ item, isMine, onClose, onToggle, onEdit, onDelete }:
         <TouchableOpacity onPress={onClose} style={{ width: 70 }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text style={styles.done}>Done</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Contractor</Text>
+        <Text style={styles.headerTitle}>{isHealth ? 'Provider' : 'Contractor'}</Text>
         <View style={{ width: 70 }} />
       </View>
 
@@ -75,10 +80,7 @@ function ContractorDetail({ item, isMine, onClose, onToggle, onEdit, onDelete }:
           {item.service_area ? <Text style={styles.area}>📍 {item.service_area}</Text> : null}
         </View>
 
-        <TouchableOpacity
-          onPress={() => onToggle(item)}
-          style={[styles.bigRec, item.i_recommend && styles.bigRecOn]}
-        >
+        <TouchableOpacity onPress={() => onToggle(item)} style={[styles.bigRec, item.i_recommend && styles.bigRecOn]}>
           <Text style={[styles.bigRecText, item.i_recommend && styles.bigRecTextOn]}>
             👍 {item.i_recommend ? 'You recommend them' : 'I recommend them too'} · {item.rec_count}
           </Text>
@@ -111,7 +113,14 @@ function ContractorDetail({ item, isMine, onClose, onToggle, onEdit, onDelete }:
         {item.email ? <Text style={styles.contactDetail}>{item.email}</Text> : null}
         {item.website ? <Text style={styles.contactDetail}>{item.website}</Text> : null}
 
-        <Text style={styles.sectionLabel}>Referred by</Text>
+        {isHealth && item.insurance ? (
+          <>
+            <Text style={styles.sectionLabel}>Insurance accepted</Text>
+            <Text style={styles.notes}>{item.insurance}</Text>
+          </>
+        ) : null}
+
+        <Text style={styles.sectionLabel}>Recommended by</Text>
         <View style={styles.referrer}>
           <Avatar uri={item.referrer_avatar} name={item.referrer_name} size={40} />
           <View style={{ marginLeft: 10 }}>
@@ -129,13 +138,17 @@ function ContractorDetail({ item, isMine, onClose, onToggle, onEdit, onDelete }:
           </>
         ) : null}
 
+        {isHealth ? (
+          <Text style={styles.disclaimer}>Member recommendations, not medical advice.</Text>
+        ) : null}
+
         {isMine ? (
           <View style={{ marginTop: 28 }}>
             <TouchableOpacity style={styles.primaryButton} onPress={() => onEdit(item)}>
-              <Text style={styles.primaryButtonText}>✏️ Edit Contractor</Text>
+              <Text style={styles.primaryButtonText}>✏️ Edit Recommendation</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.deleteButton} onPress={confirmDelete}>
-              <Text style={styles.deleteButtonText}>Remove Contractor</Text>
+              <Text style={styles.deleteButtonText}>Remove</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -146,12 +159,13 @@ function ContractorDetail({ item, isMine, onClose, onToggle, onEdit, onDelete }:
   );
 }
 
-export default function ContractorsScreen() {
+export default function ProsScreen() {
   const { session } = useAuth();
   const myId = session?.user.id;
   const [items, setItems] = useState<Contractor[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [section, setSection] = useState<ProCategory>('home');
   const [query, setQuery] = useState('');
   const [trade, setTrade] = useState('All');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -161,7 +175,7 @@ export default function ContractorsScreen() {
   const load = useCallback(async () => {
     const { data, error } = await supabase.rpc('contractors_list');
     if (error) {
-      Alert.alert('Could not load contractors', error.message);
+      Alert.alert('Could not load', error.message);
     } else {
       setItems((data ?? []) as Contractor[]);
     }
@@ -175,22 +189,30 @@ export default function ContractorsScreen() {
     }, [load])
   );
 
+  const isHealth = section === 'health';
+  const chipOptions = ['All', ...(isHealth ? SPECIALTIES : TRADES)];
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return items.filter((c) => {
+      if ((c.category ?? 'home') !== section) return false;
       if (trade !== 'All' && c.trade !== trade) return false;
       if (!q) return true;
-      return [c.name, c.trade, c.service_area ?? '', c.notes ?? '', c.referrer_name ?? '']
+      return [c.name, c.trade, c.service_area ?? '', c.insurance ?? '', c.notes ?? '', c.referrer_name ?? '']
         .join(' ')
         .toLowerCase()
         .includes(q);
     });
-  }, [items, query, trade]);
+  }, [items, query, trade, section]);
 
   const selected = items.find((c) => c.id === selectedId) ?? null;
 
+  function switchSection(next: ProCategory) {
+    setSection(next);
+    setTrade('All');
+  }
+
   async function toggleRecommend(c: Contractor) {
-    // Update the screen right away, then save
     setItems((prev) =>
       prev.map((x) =>
         x.id === c.id
@@ -205,7 +227,7 @@ export default function ContractorsScreen() {
     load();
   }
 
-  async function deleteContractor(c: Contractor) {
+  async function deleteItem(c: Contractor) {
     setSelectedId(null);
     const { error } = await supabase.from('contractors').delete().eq('id', c.id);
     if (error) Alert.alert('Could not remove', error.message);
@@ -224,11 +246,20 @@ export default function ContractorsScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.segment}>
+        <TouchableOpacity style={[styles.segmentItem, !isHealth && styles.segmentActive]} onPress={() => switchSection('home')}>
+          <Text style={[styles.segmentText, !isHealth && styles.segmentTextActive]}>🧰 Home & Property</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.segmentItem, isHealth && styles.segmentActive]} onPress={() => switchSection('health')}>
+          <Text style={[styles.segmentText, isHealth && styles.segmentTextActive]}>🩺 Health & Wellness</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.searchWrap}>
         <Text style={{ fontSize: 16, marginRight: 8 }}>🔍</Text>
         <TextInput
           style={styles.searchInput}
-          placeholder="Search name, trade, area"
+          placeholder={isHealth ? 'Search doctor, specialty, insurance' : 'Search name, trade, area'}
           placeholderTextColor="#888"
           value={query}
           onChangeText={setQuery}
@@ -244,7 +275,7 @@ export default function ContractorsScreen() {
 
       <View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow} keyboardShouldPersistTaps="handled">
-          {['All', ...TRADES].map((t) => (
+          {chipOptions.map((t) => (
             <TouchableOpacity key={t} style={[styles.chip, trade === t && styles.chipActive]} onPress={() => setTrade(t)}>
               <Text style={[styles.chipText, trade === t && styles.chipTextActive]}>{t}</Text>
             </TouchableOpacity>
@@ -262,18 +293,24 @@ export default function ContractorsScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={FIRE_RED} />
         }
         ListHeaderComponent={
-          !isFiltering && items.length > 0 ? (
-            <Text style={styles.intro}>Trusted pros for your home and property, recommended by the fire family.</Text>
+          !isFiltering && filtered.length > 0 ? (
+            <Text style={styles.intro}>
+              {isHealth
+                ? 'Doctors and providers recommended by the fire family. Member recommendations, not medical advice.'
+                : 'Trusted pros for your home and property, recommended by the fire family.'}
+            </Text>
           ) : null
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={{ fontSize: 56 }}>🧰</Text>
-            <Text style={styles.emptyTitle}>{isFiltering ? 'No matches' : 'No contractors yet'}</Text>
+            <Text style={{ fontSize: 56 }}>{isHealth ? '🩺' : '🧰'}</Text>
+            <Text style={styles.emptyTitle}>{isFiltering ? 'No matches' : 'No recommendations yet'}</Text>
             <Text style={styles.emptyText}>
               {isFiltering
-                ? 'Try a different search or trade.'
-                : 'Know a plumber, electrician, or roofer you trust? Refer them for the fire family.'}
+                ? 'Try a different search or filter.'
+                : isHealth
+                ? 'Know a great ortho, dermatologist, or PT? Recommend them for the fire family.'
+                : 'Know a plumber, electrician, or roofer you trust? Recommend them for the fire family.'}
             </Text>
           </View>
         }
@@ -288,7 +325,7 @@ export default function ContractorsScreen() {
               <View style={styles.cardReferrer}>
                 <Avatar uri={item.referrer_avatar} name={item.referrer_name} size={22} />
                 <Text style={styles.cardReferrerText} numberOfLines={1}>
-                  Referred by {item.referrer_name ?? 'Unknown'}
+                  Recommended by {item.referrer_name ?? 'Unknown'}
                   {item.referrer_station ? ` · ${item.referrer_station}` : ''}
                 </Text>
               </View>
@@ -299,21 +336,22 @@ export default function ContractorsScreen() {
       />
 
       <TouchableOpacity style={styles.fab} onPress={() => setShowNew(true)}>
-        <Text style={styles.fabText}>+ Refer a Pro</Text>
+        <Text style={styles.fabText}>+ Recommend</Text>
       </TouchableOpacity>
 
-      <ContractorDetail
+      <ProDetail
         item={selected}
         isMine={selected?.referred_by === myId}
         onClose={() => setSelectedId(null)}
         onToggle={toggleRecommend}
         onEdit={(c) => { setSelectedId(null); setTimeout(() => setEditing(c), 800); }}
-        onDelete={deleteContractor}
+        onDelete={deleteItem}
       />
 
       <NewContractorModal
         visible={showNew || !!editing}
         existing={editing}
+        defaultCategory={section}
         onClose={() => { setShowNew(false); setEditing(null); }}
         onSaved={load}
       />
@@ -324,6 +362,11 @@ export default function ContractorsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f4f4f4' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f4f4f4' },
+  segment: { flexDirection: 'row', backgroundColor: '#e6e6e6', borderRadius: 12, padding: 4, margin: 12, marginBottom: 0 },
+  segmentItem: { flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: 'center' },
+  segmentActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
+  segmentText: { fontSize: 14, color: '#666', fontWeight: '600' },
+  segmentTextActive: { color: FIRE_RED },
   searchWrap: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff',
     margin: 12, marginBottom: 6, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: '#ddd',
@@ -335,7 +378,7 @@ const styles = StyleSheet.create({
   chipText: { color: '#333', fontSize: 14 },
   chipTextActive: { color: '#fff', fontWeight: '600' },
   list: { padding: 12, paddingBottom: 100 },
-  intro: { fontSize: 14, color: '#666', marginBottom: 10, marginLeft: 4 },
+  intro: { fontSize: 14, color: '#666', marginBottom: 10, marginLeft: 4, lineHeight: 20 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   emptyTitle: { fontSize: 22, fontWeight: 'bold', color: FIRE_RED, marginTop: 10 },
   emptyText: { fontSize: 15, color: '#666', marginTop: 6, textAlign: 'center', lineHeight: 21 },
@@ -352,10 +395,7 @@ const styles = StyleSheet.create({
   area: { fontSize: 13, color: '#666', flexShrink: 1 },
   cardReferrer: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
   cardReferrerText: { fontSize: 12, color: '#777', marginLeft: 6, flexShrink: 1 },
-  recButton: {
-    borderWidth: 1, borderColor: '#ccc', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 12,
-    marginLeft: 10, minWidth: 64, alignItems: 'center',
-  },
+  recButton: { borderWidth: 1, borderColor: '#ccc', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 12, marginLeft: 10, minWidth: 64, alignItems: 'center' },
   recButtonOn: { backgroundColor: FIRE_RED, borderColor: FIRE_RED },
   recText: { fontSize: 15, color: '#333', fontWeight: '600' },
   recTextOn: { color: '#fff' },
@@ -385,6 +425,7 @@ const styles = StyleSheet.create({
   referrerName: { fontSize: 16, fontWeight: '600', color: '#111' },
   referrerMeta: { fontSize: 13, color: '#777', marginTop: 2 },
   notes: { fontSize: 16, color: '#333', lineHeight: 23 },
+  disclaimer: { fontSize: 12, color: '#888', marginTop: 20, fontStyle: 'italic' },
   primaryButton: { backgroundColor: FIRE_RED, borderRadius: 10, padding: 16, alignItems: 'center' },
   primaryButtonText: { color: '#fff', fontSize: 17, fontWeight: 'bold' },
   deleteButton: { borderRadius: 10, padding: 16, alignItems: 'center', marginTop: 12, borderWidth: 1, borderColor: FIRE_RED },

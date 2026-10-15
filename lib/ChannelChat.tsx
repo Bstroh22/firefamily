@@ -15,6 +15,7 @@ import { ChannelHere } from './activity';
 import { useAuth } from './auth';
 import Avatar from './Avatar';
 import ConversationChat from './ConversationChat';
+import { useForumUnread } from './forumUnread';
 import { startConversation } from './messages';
 import { ReportModal } from './ReportButton';
 import { supabase } from './supabase';
@@ -59,6 +60,7 @@ type Props = {
 
 export default function ChannelChat({ channel, initialQuery, onClose }: Props) {
   const { session, profile } = useAuth();
+  const { refresh: refreshUnread } = useForumUnread();
   const myId = session?.user.id;
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +69,7 @@ export default function ChannelChat({ channel, initialQuery, onClose }: Props) {
   const [typers, setTypers] = useState<Record<string, Typer>>({});
   const [directChat, setDirectChat] = useState<{ id: string; name: string } | null>(null);
   const [reportId, setReportId] = useState<string | null>(null);
+  const [lastRead, setLastRead] = useState<string | null>(null);
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -88,18 +91,33 @@ export default function ChannelChat({ channel, initialQuery, onClose }: Props) {
     setLoading(false);
   }, [channel]);
 
-  // Open the channel (and start in search mode if we came from a search)
+  // Open the channel: remember where I left off, then mark it read
   useEffect(() => {
     if (!channel) return;
+    const channelId = channel.id;
     setLoading(true);
     setMessages([]);
     setDirectChat(null);
+    setLastRead(null);
     setSearchOpen(!!initialQuery);
     setQuery(initialQuery ?? '');
     setResults([]);
+
+    (async () => {
+      const { data } = await supabase.rpc('channel_last_read', { ch: channelId });
+      if (typeof data === 'string') setLastRead(data);
+      await supabase.rpc('mark_channel_read', { ch: channelId });
+      refreshUnread();
+    })();
+
     loadMessages();
     const timer = setInterval(loadMessages, REFRESH_MS);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      // Mark read again on the way out, so messages seen while open don't count
+      supabase.rpc('mark_channel_read', { ch: channelId }).then(() => refreshUnread());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channel, initialQuery, loadMessages]);
 
   // Search this channel's full history
@@ -253,27 +271,30 @@ export default function ChannelChat({ channel, initialQuery, onClose }: Props) {
 
   const typingText = typingLabel(Object.values(typers).map((t) => t.name));
 
+  // The oldest message from someone else that arrived after I last read
+  const lastReadTime = lastRead ? new Date(lastRead).getTime() : null;
+  const unreadOthers = lastReadTime
+    ? messages.filter((m) => m.author_id !== myId && new Date(m.created_at).getTime() > lastReadTime)
+    : [];
+  const firstUnreadId = unreadOthers.length ? unreadOthers[unreadOthers.length - 1].id : null;
+
   function renderMessage({ item }: { item: Message }) {
     const mine = item.author_id === myId;
     const authorLine = `${item.author?.full_name ?? 'Unknown'}${item.author?.station ? ` · ${item.author.station}` : ''}`;
 
-    if (mine) {
-      return (
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onLongPress={() => confirmDelete(item)}
-          style={[styles.row, styles.rowMine]}
-        >
-          <Text style={[styles.author, styles.authorMine]}>{authorLine}</Text>
-          <View style={[styles.bubble, styles.bubbleMine]}>
-            <Text style={[styles.body, styles.bodyMine]}>{item.body}</Text>
-          </View>
-          <Text style={[styles.time, { textAlign: 'right' }]}>{formatTime(item.created_at)}</Text>
-        </TouchableOpacity>
-      );
-    }
-
-    return (
+    const content = mine ? (
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onLongPress={() => confirmDelete(item)}
+        style={[styles.row, styles.rowMine]}
+      >
+        <Text style={[styles.author, styles.authorMine]}>{authorLine}</Text>
+        <View style={[styles.bubble, styles.bubbleMine]}>
+          <Text style={[styles.body, styles.bodyMine]}>{item.body}</Text>
+        </View>
+        <Text style={[styles.time, { textAlign: 'right' }]}>{formatTime(item.created_at)}</Text>
+      </TouchableOpacity>
+    ) : (
       <View style={styles.theirsWrap}>
         <TouchableOpacity onPress={() => confirmDirectMessage(item)} style={styles.avatarTap}>
           <Avatar uri={item.author?.avatar_url} name={item.author?.full_name} size={34} />
@@ -297,6 +318,20 @@ export default function ChannelChat({ channel, initialQuery, onClose }: Props) {
         </TouchableOpacity>
       </View>
     );
+
+    if (!searchOpen && item.id === firstUnreadId) {
+      return (
+        <View>
+          <View style={styles.newDivider}>
+            <View style={styles.newLine} />
+            <Text style={styles.newText}>New messages</Text>
+            <View style={styles.newLine} />
+          </View>
+          {content}
+        </View>
+      );
+    }
+    return content;
   }
 
   return (
@@ -452,6 +487,9 @@ const styles = StyleSheet.create({
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   emptyTitle: { fontSize: 20, fontWeight: 'bold', color: FIRE_RED, marginTop: 10 },
   emptyText: { fontSize: 15, color: '#666', marginTop: 6, textAlign: 'center' },
+  newDivider: { flexDirection: 'row', alignItems: 'center', marginVertical: 10 },
+  newLine: { flex: 1, height: 1, backgroundColor: FIRE_RED, opacity: 0.5 },
+  newText: { color: FIRE_RED, fontSize: 12, fontWeight: '700', marginHorizontal: 8, textTransform: 'uppercase' },
   theirsWrap: { flexDirection: 'row', alignItems: 'flex-end', marginVertical: 5 },
   avatarTap: { marginRight: 8, marginBottom: 18 },
   row: { maxWidth: '78%' },
