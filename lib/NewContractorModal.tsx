@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text, TextInput, TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text, TextInput, TouchableOpacity,
+  View,
 } from 'react-native';
 import { supabase } from './supabase';
 
@@ -140,7 +140,7 @@ export default function NewContractorModal({ visible, existing, defaultCategory,
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
           <View style={styles.segment}>
             <TouchableOpacity style={[styles.segmentItem, !isHealth && styles.segmentActive]} onPress={() => switchCategory('home')}>
-              <Text style={[styles.segmentText, !isHealth && styles.segmentTextActive]}>🧰 Home & Property</Text>
+              <Text style={[styles.segmentText, !isHealth && styles.segmentTextActive]}>🧰 Home & Services</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.segmentItem, isHealth && styles.segmentActive]} onPress={() => switchCategory('health')}>
               <Text style={[styles.segmentText, isHealth && styles.segmentTextActive]}>🩺 Health & Wellness</Text>
@@ -157,7 +157,7 @@ export default function NewContractorModal({ visible, existing, defaultCategory,
             autoCapitalize="words"
           />
 
-          <Text style={styles.label}>{isHealth ? 'Specialty' : 'Trade'}</Text>
+          <Text style={styles.label}>{isHealth ? 'Specialty' : 'Trade or service'}</Text>
           <View style={styles.chips}>
             {options.map((t) => (
               <TouchableOpacity key={t} style={[styles.chip, trade === t && styles.chipActive]} onPress={() => setTrade(t)}>

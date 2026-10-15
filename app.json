@@ -31,6 +31,12 @@
           "cameraPermission": "SoCal FireFamily uses your camera so you can take photos for listings, rentals, and your profile."
         }
       ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "SoCal FireFamily uses your location to show referrals near you."
+        }
+      ],
       "expo-router",
       [
         "expo-splash-screen",
