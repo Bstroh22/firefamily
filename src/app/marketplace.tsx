@@ -21,7 +21,7 @@ import { supabase } from '../../lib/supabase';
 const FIRE_RED = '#C8102E';
 
 export default function MarketplaceScreen() {
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -211,6 +211,7 @@ export default function MarketplaceScreen() {
       <ListingDetailModal
         listing={selected}
         isMine={selected?.seller_id === session?.user.id}
+        isAdmin={!!profile?.is_admin}
         onClose={() => setSelected(null)}
         onMarkSold={markSold}
         onDelete={deleteListing} onEdit={(item) => { setSelected(null); setTimeout(() => setEditing(item), 800); }}

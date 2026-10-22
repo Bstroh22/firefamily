@@ -52,9 +52,10 @@ type Props = {
   onEdit: (listing: Listing) => void;
   onMarkSold: (id: string) => void;
   onDelete: (id: string) => void;
+  isAdmin?: boolean;
 };
 
-export default function ListingDetailModal({ listing, isMine, onClose, onEdit, onMarkSold, onDelete }: Props) {
+export default function ListingDetailModal({ listing, isMine, isAdmin, onClose, onEdit, onMarkSold, onDelete }: Props) {
   const [chatId, setChatId] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
 
@@ -136,7 +137,13 @@ export default function ListingDetailModal({ listing, isMine, onClose, onEdit, o
             </TouchableOpacity>
           )}
 
-          {!isMine && <ReportButton kind="listing" targetId={listing.id} />}{isMine && (
+          {!isMine && <ReportButton kind="listing" targetId={listing.id} />}
+          {!isMine && isAdmin ? (
+            <TouchableOpacity style={styles.deleteButton} onPress={confirmDelete}>
+              <Text style={styles.deleteButtonText}>🛡️ Remove (admin)</Text>
+            </TouchableOpacity>
+          ) : null}
+          {isMine && (
             <View style={{ marginTop: 28 }}>
               <TouchableOpacity style={styles.primaryButton} onPress={() => onEdit(listing)}>
                 <Text style={styles.primaryButtonText}>✏️ Edit Listing</Text>

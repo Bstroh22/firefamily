@@ -101,7 +101,7 @@ async function fillMissingCoords(
 }
 
 export default function RentalsScreen() {
-  const { session } = useAuth();
+    const { session, profile } = useAuth();
   const [rentals, setRentals] = useState<Rental[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -538,6 +538,7 @@ export default function RentalsScreen() {
       <RentalDetailModal
         rental={selected}
         isMine={selected?.owner_id === session?.user.id}
+                isAdmin={!!profile?.is_admin}
         onClose={() => setSelected(null)}
         onHide={hideRental}
         onDelete={deleteRental}

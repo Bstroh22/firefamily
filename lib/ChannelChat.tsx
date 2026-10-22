@@ -239,7 +239,18 @@ export default function ChannelChat({ channel, initialQuery, onClose }: Props) {
     ]);
   }
 
-  function confirmDirectMessage(message: Message) {
+    // Long-press someone else's message: members report it; admins can also remove it
+  function moderate(message: Message) {
+    if (!profile?.is_admin) {
+      setReportId(message.id);
+      return;
+    }
+    Alert.alert('Moderate message', message.author?.full_name ?? undefined, [
+      { text: '🛡️ Remove (admin)', style: 'destructive', onPress: () => confirmDelete(message) },
+      { text: 'Report', onPress: () => setReportId(message.id) },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }function confirmDirectMessage(message: Message) {
     const name = message.author?.full_name ?? 'this member';
     Alert.alert(`Message ${name}?`, 'Start a private conversation.', [
       { text: 'Cancel', style: 'cancel' },
@@ -301,7 +312,7 @@ export default function ChannelChat({ channel, initialQuery, onClose }: Props) {
         </TouchableOpacity>
         <TouchableOpacity
           activeOpacity={0.8}
-          onLongPress={() => setReportId(item.id)}
+          onLongPress={() => moderate(item)}
           style={[styles.row, styles.rowTheirs]}
         >
           <Text

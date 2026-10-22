@@ -121,9 +121,10 @@ type DetailProps = {
   onToggle: (c: Contractor) => void;
   onEdit: (c: Contractor) => void;
   onDelete: (c: Contractor) => void;
+    isAdmin?: boolean;
 };
 
-function ProDetail({ item, isMine, onClose, onToggle, onEdit, onDelete }: DetailProps) {
+function ProDetail({ item, isMine, isAdmin, onClose, onToggle, onEdit, onDelete }: DetailProps) {
   if (!item) return null;
   const isHealth = item.category === 'health';
   const hasPlace = !!(item.address?.trim() || item.service_area?.trim());
@@ -232,7 +233,14 @@ function ProDetail({ item, isMine, onClose, onToggle, onEdit, onDelete }: Detail
             </TouchableOpacity>
           </View>
         ) : (
-          <ReportButton kind="contractor" targetId={item.id} />
+          <>
+            <ReportButton kind="contractor" targetId={item.id} />
+            {isAdmin ? (
+              <TouchableOpacity style={styles.deleteButton} onPress={confirmDelete}>
+                <Text style={styles.deleteButtonText}>🛡️ Remove (admin)</Text>
+              </TouchableOpacity>
+            ) : null}
+          </>
         )}
       </ScrollView>
     </Modal>
@@ -240,7 +248,7 @@ function ProDetail({ item, isMine, onClose, onToggle, onEdit, onDelete }: Detail
 }
 
 export default function ProsScreen() {
-  const { session } = useAuth();
+   const { session, profile } = useAuth();
   const myId = session?.user.id;
   const [items, setItems] = useState<Contractor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -634,6 +642,7 @@ export default function ProsScreen() {
       <ProDetail
         item={selected}
         isMine={selected?.referred_by === myId}
+                isAdmin={!!profile?.is_admin}
         onClose={() => setSelectedId(null)}
         onToggle={toggleRecommend}
         onEdit={(c) => { setSelectedId(null); setTimeout(() => setEditing(c), 800); }}

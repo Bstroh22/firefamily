@@ -94,9 +94,10 @@ type Props = {
   onEdit: (rental: Rental) => void;
   onHide: (id: string) => void;
   onDelete: (id: string) => void;
+    isAdmin?: boolean;
 };
 
-export default function RentalDetailModal({ rental, isMine, onClose, onEdit, onHide, onDelete }: Props) {
+export default function RentalDetailModal({ rental, isMine, isAdmin, onClose, onEdit, onHide, onDelete }: Props) {
   const [chatId, setChatId] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
 
@@ -233,6 +234,11 @@ export default function RentalDetailModal({ rental, isMine, onClose, onEdit, onH
           )}
 
           {!isMine && <ReportButton kind="rental" targetId={rental.id} />}
+                    {!isMine && isAdmin ? (
+            <TouchableOpacity style={styles.deleteButton} onPress={confirmDelete}>
+              <Text style={styles.deleteButtonText}>🛡️ Remove (admin)</Text>
+            </TouchableOpacity>
+          ) : null}
           {isMine && (
             <View style={{ marginTop: 28 }}>
               <TouchableOpacity style={styles.primaryButton} onPress={() => onEdit(rental)}>
