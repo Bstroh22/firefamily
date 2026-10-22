@@ -1,12 +1,13 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
-    Image, RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Image,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAdminCount } from '../../lib/admin';
@@ -14,6 +15,7 @@ import { useAuth } from '../../lib/auth';
 import Avatar from '../../lib/Avatar';
 import { formatPrice, timeAgo } from '../../lib/ListingDetailModal';
 import { useUnreadMessages } from '../../lib/messages';
+import { requestOpenChannel } from '../../lib/openChannel';
 import { formatRate } from '../../lib/RentalDetailModal';
 import { supabase } from '../../lib/supabase';
 
@@ -34,6 +36,7 @@ type HomePost = {
   id: string;
   body: string;
   created_at: string;
+  channel_id: string;
   author: { full_name: string | null; avatar_url: string | null } | null;
   channel: { name: string } | null;
 };
@@ -43,6 +46,7 @@ type HomeRental = {
   title: string;
   location: string | null;
   nightly_rate: number | null;
+  rate_period: 'night' | 'week' | 'month' | null;
   max_guests: number | null;
   photo_urls: string[];
 };
@@ -103,12 +107,12 @@ export default function HomeScreen() {
         .limit(6),
       supabase
         .from('forum_messages')
-        .select('id, body, created_at, author:profiles(full_name, avatar_url), channel:forum_channels(name)')
+        .select('id, body, created_at, channel_id, author:profiles(full_name, avatar_url), channel:forum_channels(name)')
         .order('created_at', { ascending: false })
         .limit(3),
       supabase
         .from('rentals')
-        .select('id, title, location, nightly_rate, max_guests, photo_urls')
+        .select('id, title, location, nightly_rate, rate_period, max_guests, photo_urls')
         .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(1),
@@ -128,6 +132,11 @@ export default function HomeScreen() {
     }, [load, refreshUnread, refreshAdmin])
   );
 
+  function openPost(p: HomePost) {
+    if (p.channel_id) requestOpenChannel(p.channel_id);
+    router.navigate('/forums');
+  }
+
   const firstName = profile?.full_name?.split(' ')[0] ?? 'Firefighter';
   const subtitle = [profile?.rank, profile?.station].filter(Boolean).join(' · ');
 
@@ -138,14 +147,25 @@ export default function HomeScreen() {
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
-          onRefresh={() => { setRefreshing(true); load(); refreshUnread(); refreshAdmin(); }}
+          onRefresh={() => {
+            setRefreshing(true);
+            load();
+            refreshUnread();
+            refreshAdmin();
+          }}
           tintColor="#fff"
         />
       }
     >
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 14 }]}><Image source={require('../../assets/images/logo-mark.png')} style={[styles.watermark, { top: insets.top + 30 }]} resizeMode="contain" />
-        <View style={styles.headerTop}><Image source={require('../../assets/images/logo-mark.png')} style={styles.brandMark} resizeMode="contain" />
+      <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
+        <Image
+          source={require('../../assets/images/logo-mark.png')}
+          style={[styles.watermark, { top: insets.top + 30 }]}
+          resizeMode="contain"
+        />
+        <View style={styles.headerTop}>
+          <Image source={require('../../assets/images/logo-mark.png')} style={styles.brandMark} resizeMode="contain" />
           <Text style={styles.brand}>
             SoCal <Text style={{ color: RED }}>Fire</Text>Family
           </Text>
@@ -220,7 +240,7 @@ export default function HomeScreen() {
         )}
 
         {/* Forums */}
-        <SectionHeader title="Latest in Forums" action="Open" onPress={() => router.push('/forums')} />
+        <SectionHeader title="Latest in Forums" action="Open" onPress={() => router.navigate('/forums')} />
         {posts.length === 0 ? (
           <Text style={styles.emptyLine}>No forum messages yet.</Text>
         ) : (
@@ -229,7 +249,7 @@ export default function HomeScreen() {
               <TouchableOpacity
                 key={p.id}
                 style={[styles.forumRow, i < posts.length - 1 && styles.forumDivider]}
-                onPress={() => router.push('/forums')}
+                onPress={() => openPost(p)}
               >
                 <Avatar uri={p.author?.avatar_url} name={p.author?.full_name} size={38} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
@@ -261,7 +281,7 @@ export default function HomeScreen() {
             <View style={{ padding: 14 }}>
               <View style={styles.forumTop}>
                 <Text style={styles.rentalTitle} numberOfLines={1}>{rental.title}</Text>
-                <Text style={styles.rentalRate}>{formatRate(rental.nightly_rate)}</Text>
+                <Text style={styles.rentalRate}>{formatRate(rental.nightly_rate, rental.rate_period)}</Text>
               </View>
               <Text style={styles.listingMeta}>
                 {rental.location ?? ''}{rental.max_guests ? ` · Sleeps ${rental.max_guests}` : ''}
@@ -278,7 +298,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F3F1EE' },
   header: { backgroundColor: NAVY, paddingHorizontal: 20, paddingBottom: 56, overflow: 'hidden' },
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  brand: { color: '#fff', fontSize: 20, fontWeight: 'bold', flex: 1, marginLeft: 10 }, brandMark: { width: 36, height: 36 }, watermark: { position: 'absolute', right: -70, width: 290, height: 290, opacity: 0.12 },
+  brand: { color: '#fff', fontSize: 20, fontWeight: 'bold', flex: 1, marginLeft: 10 },
+  brandMark: { width: 36, height: 36 },
+  watermark: { position: 'absolute', right: -70, width: 290, height: 290, opacity: 0.12 },
   avatarRing: { borderWidth: 2, borderColor: RED, borderRadius: 24, padding: 2 },
   greeting: { color: '#C9D3E0', fontSize: 15 },
   name: { color: '#fff', fontSize: 30, fontWeight: 'bold', marginTop: 2 },

@@ -9,6 +9,7 @@ import AvatarRequiredScreen from '../../lib/AvatarRequiredScreen';
 import { ForumUnreadProvider, useForumUnread } from '../../lib/forumUnread';
 import { UnreadMessagesProvider } from '../../lib/messages';
 import PendingScreen from '../../lib/PendingScreen';
+import { useNotificationTaps, usePushRegistration } from '../../lib/push';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -30,8 +31,22 @@ function BackHome() {
   );
 }
 
+function BellButton() {
+  return (
+    <Text
+      onPress={() => router.push('/notifications')}
+      style={{ fontSize: 20, marginRight: 16 }}
+      suppressHighlighting
+      accessibilityLabel="Notification settings"
+    >
+      🔔
+    </Text>
+  );
+}
+
 function MainTabs() {
   const { total: forumUnread } = useForumUnread();
+  useNotificationTaps();
 
   return (
     <Tabs
@@ -62,7 +77,8 @@ function MainTabs() {
       <Tabs.Screen
         name="rentals"
         options={{
-          title: 'Rentals',
+          title: 'Rentals & Housing',
+          tabBarLabel: 'Rentals',
           tabBarIcon: ({ focused }) => <TabIcon emoji="🏡" focused={focused} />,
         }}
       />
@@ -78,6 +94,7 @@ function MainTabs() {
         name="forums"
         options={{
           title: 'Forums',
+          headerRight: () => <BellButton />,
           tabBarBadge: forumUnread > 0 ? (forumUnread > 99 ? '99+' : forumUnread) : undefined,
           tabBarIcon: ({ focused }) => <TabIcon emoji="💬" focused={focused} />,
         }}
@@ -88,11 +105,15 @@ function MainTabs() {
       />
       <Tabs.Screen
         name="profile"
-        options={{ title: 'Profile', href: null, headerLeft: () => <BackHome /> }}
+        options={{ title: 'Profile', href: null, headerLeft: () => <BackHome />, headerRight: () => <BellButton /> }}
       />
       <Tabs.Screen
         name="admin"
         options={{ title: 'Admin', href: null, headerLeft: () => <BackHome /> }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{ title: 'Notifications', href: null, headerLeft: () => <BackHome /> }}
       />
     </Tabs>
   );
@@ -100,6 +121,7 @@ function MainTabs() {
 
 function AppGate() {
   const { session, profile, loading } = useAuth();
+  usePushRegistration(session?.user.id);
 
   useEffect(() => {
     if (!loading) {

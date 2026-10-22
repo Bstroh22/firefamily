@@ -48,6 +48,16 @@ function geocodeText(text: string) {
   return /,|\bCA\b|california/i.test(t) ? t : `${t}, CA`;
 }
 
+// Address wins over city/ZIP when both are filled in
+function placeFor(c: Contractor) {
+  return c.address?.trim() || c.service_area?.trim() || '';
+}
+
+function directionsUrl(c: Contractor) {
+  const q = c.address?.trim() ? c.address.trim() : `${c.name} ${c.service_area ?? ''}`;
+  return `http://maps.apple.com/?q=${encodeURIComponent(q)}`;
+}
+
 function milesBetween(a: Coord, b: Coord) {
   const R = 3958.8;
   const toRad = (d: number) => (d * Math.PI) / 180;
@@ -73,14 +83,14 @@ async function fillMissingCoords(
   let count = 0;
   for (const c of list) {
     if (count >= 10) break;
-    const area = c.service_area?.trim();
-    if (!area || known[c.id]) continue;
-    const key = `${c.id}|${area}`;
+    const place = placeFor(c);
+    if (!place || known[c.id]) continue;
+    const key = `${c.id}|${place}`;
     if (tried.has(key)) continue;
     tried.add(key);
     count++;
     try {
-      const res = await Location.geocodeAsync(geocodeText(area));
+      const res = await Location.geocodeAsync(geocodeText(place));
       if (res.length) {
         const pt = { lat: res[0].latitude, lng: res[0].longitude };
         onFound(c.id, pt);
@@ -116,6 +126,7 @@ type DetailProps = {
 function ProDetail({ item, isMine, onClose, onToggle, onEdit, onDelete }: DetailProps) {
   if (!item) return null;
   const isHealth = item.category === 'health';
+  const hasPlace = !!(item.address?.trim() || item.service_area?.trim());
 
   function confirmDelete() {
     Alert.alert('Remove recommendation?', 'This removes it for everyone, including all 👍.', [
@@ -140,6 +151,11 @@ function ProDetail({ item, isMine, onClose, onToggle, onEdit, onDelete }: Detail
           <Text style={styles.trade}>{item.trade}</Text>
           {item.service_area ? <Text style={styles.area}>📍 {item.service_area}</Text> : null}
         </View>
+        {item.address ? (
+          <TouchableOpacity onPress={() => Linking.openURL(directionsUrl(item))}>
+            <Text style={styles.addressLine}>🏠 {item.address}</Text>
+          </TouchableOpacity>
+        ) : null}
 
         <TouchableOpacity onPress={() => onToggle(item)} style={[styles.bigRec, item.i_recommend && styles.bigRecOn]}>
           <Text style={[styles.bigRecText, item.i_recommend && styles.bigRecTextOn]}>
@@ -169,11 +185,8 @@ function ProDetail({ item, isMine, onClose, onToggle, onEdit, onDelete }: Detail
               <Text style={styles.contactText}>🌐 Website</Text>
             </TouchableOpacity>
           ) : null}
-          {item.service_area ? (
-            <TouchableOpacity
-              style={styles.contactButton}
-              onPress={() => Linking.openURL(`http://maps.apple.com/?q=${encodeURIComponent(`${item.name} ${item.service_area}`)}`)}
-            >
+          {hasPlace ? (
+            <TouchableOpacity style={styles.contactButton} onPress={() => Linking.openURL(directionsUrl(item))}>
               <Text style={styles.contactText}>🗺 Directions</Text>
             </TouchableOpacity>
           ) : null}
@@ -256,12 +269,17 @@ export default function ProsScreen() {
     if (listRes.error) {
       Alert.alert('Could not load', listRes.error.message);
     } else {
-      const list = (listRes.data ?? []) as Contractor[];
-      setItems(list);
       const known: Record<string, Coord> = {};
+      const addresses: Record<string, string | null> = {};
       for (const l of (locRes.data ?? []) as any[]) {
+        addresses[String(l.id)] = l.address ?? null;
         if (l.lat != null && l.lng != null) known[String(l.id)] = { lat: l.lat, lng: l.lng };
       }
+      const list = ((listRes.data ?? []) as Contractor[]).map((c) => ({
+        ...c,
+        address: addresses[String(c.id)] ?? null,
+      }));
+      setItems(list);
       setCoords(known);
       fillMissingCoords(list, known, tried.current, (id, pt) =>
         setCoords((prev) => ({ ...prev, [id]: pt }))
@@ -287,7 +305,7 @@ export default function ProsScreen() {
         if ((c.category ?? 'home') !== section) return false;
         if (trade !== 'All' && c.trade !== trade) return false;
         if (!q) return true;
-        return [c.name, c.trade, c.service_area ?? '', c.insurance ?? '', c.notes ?? '', c.referrer_name ?? '']
+        return [c.name, c.trade, c.service_area ?? '', c.address ?? '', c.insurance ?? '', c.notes ?? '', c.referrer_name ?? '']
           .join(' ')
           .toLowerCase()
           .includes(q);
@@ -308,7 +326,7 @@ export default function ProsScreen() {
       });
   }, [items, query, trade, section, coords, origin, radius]);
 
-  // Pins for the map — nudges pins apart when several share the same city
+  // Pins for the map — nudges pins apart when several share the same spot
   const mapPoints = useMemo(() => {
     const seen: Record<string, number> = {};
     return filtered.flatMap((c) => {
@@ -535,17 +553,15 @@ export default function ProsScreen() {
               />
             ))}
           </MapView>
-          {mapPoints.length === 0 ? (
-            <View style={styles.mapNotice}>
-              <Text style={styles.mapNoticeText}>
-                {origin ? 'No referrals in this area yet. Try a bigger distance.' : 'No referrals with a service area yet.'}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.mapNotice}>
-              <Text style={styles.mapNoticeText}>Tap a pin, then tap its name for details</Text>
-            </View>
-          )}
+          <View style={styles.mapNotice}>
+            <Text style={styles.mapNoticeText}>
+              {mapPoints.length === 0
+                ? origin
+                  ? 'No referrals in this area yet. Try a bigger distance.'
+                  : 'No referrals with a location yet.'
+                : 'Tap a pin, then tap its name for details'}
+            </Text>
+          </View>
         </View>
       ) : (
         <FlatList
@@ -581,30 +597,33 @@ export default function ProsScreen() {
               </Text>
             </View>
           }
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.card} onPress={() => setSelectedId(item.id)}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
-                <View style={[styles.row, { marginTop: 6 }]}>
-                  <Text style={styles.trade}>{item.trade}</Text>
-                  {item.service_area ? (
-                    <Text style={styles.area} numberOfLines={1}>
-                      📍 {item.service_area}
-                      {item.distance !== null ? ` · ${formatMiles(item.distance)}` : ''}
+          renderItem={({ item }) => {
+            const where = item.service_area || item.address;
+            return (
+              <TouchableOpacity style={styles.card} onPress={() => setSelectedId(item.id)}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
+                  <View style={[styles.row, { marginTop: 6 }]}>
+                    <Text style={styles.trade}>{item.trade}</Text>
+                    {where ? (
+                      <Text style={styles.area} numberOfLines={1}>
+                        📍 {where}
+                        {item.distance !== null ? ` · ${formatMiles(item.distance)}` : ''}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <View style={styles.cardReferrer}>
+                    <Avatar uri={item.referrer_avatar} name={item.referrer_name} size={22} />
+                    <Text style={styles.cardReferrerText} numberOfLines={1}>
+                      Recommended by {item.referrer_name ?? 'Unknown'}
+                      {item.referrer_station ? ` · ${item.referrer_station}` : ''}
                     </Text>
-                  ) : null}
+                  </View>
                 </View>
-                <View style={styles.cardReferrer}>
-                  <Avatar uri={item.referrer_avatar} name={item.referrer_name} size={22} />
-                  <Text style={styles.cardReferrerText} numberOfLines={1}>
-                    Recommended by {item.referrer_name ?? 'Unknown'}
-                    {item.referrer_station ? ` · ${item.referrer_station}` : ''}
-                  </Text>
-                </View>
-              </View>
-              <RecommendButton item={item} onPress={() => toggleRecommend(item)} />
-            </TouchableOpacity>
-          )}
+                <RecommendButton item={item} onPress={() => toggleRecommend(item)} />
+              </TouchableOpacity>
+            );
+          }}
         />
       )}
 
@@ -690,6 +709,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, overflow: 'hidden', marginRight: 8,
   },
   area: { fontSize: 13, color: '#666', flexShrink: 1 },
+  addressLine: { fontSize: 15, color: NAVY, marginTop: 10, textDecorationLine: 'underline' },
   cardReferrer: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
   cardReferrerText: { fontSize: 12, color: '#777', marginLeft: 6, flexShrink: 1 },
   recButton: { borderWidth: 1, borderColor: '#ccc', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 12, marginLeft: 10, minWidth: 64, alignItems: 'center' },

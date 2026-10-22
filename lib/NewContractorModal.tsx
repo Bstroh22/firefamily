@@ -7,7 +7,9 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text, TextInput, TouchableOpacity,
+  Text,
+  TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { supabase } from './supabase';
@@ -16,12 +18,15 @@ const FIRE_RED = '#C8102E';
 
 export const TRADES = [
   'General Contractor', 'Plumbing', 'Electrical', 'HVAC', 'Roofing', 'Painting', 'Solar',
-  'Landscaping', 'Pool', 'Flooring', 'Handyman', 'Pest Control', 'Auto Repair', 'Real Estate', 'Mortgage', 'Insurance', 'Financial / CPA', 'Legal', 'Veterinary', 'Moving', 'Other',
+  'Landscaping', 'Pool', 'Flooring', 'Handyman', 'Pest Control', 'Auto Repair', 'Real Estate',
+  'Mortgage', 'Insurance', 'Financial / CPA', 'Legal', 'Veterinary', 'Moving', 'Other',
 ];
 
 export const SPECIALTIES = [
   'Primary Care', 'Orthopedics', 'Sports Medicine', 'Physical Therapy', 'Chiropractic',
-  'Dermatology', 'Dental', 'Eye Care', 'Mental Health', 'Cardiology', 'ENT', 'Pediatrics', "Women's Health", 'Podiatry', 'Pain Management', 'Massage', 'Nutrition', 'Urgent Care', 'Other',
+  'Dermatology', 'Dental', 'Eye Care', 'Mental Health', 'Cardiology', 'ENT', 'Pediatrics',
+  "Women's Health", 'Podiatry', 'Pain Management', 'Massage', 'Nutrition', 'Peptides',
+  'Supplements', 'Urgent Care', 'Other',
 ];
 
 export type ProCategory = 'home' | 'health';
@@ -35,6 +40,7 @@ export type Contractor = {
   email: string | null;
   website: string | null;
   service_area: string | null;
+  address?: string | null;
   insurance: string | null;
   notes: string | null;
   created_at: string;
@@ -57,11 +63,12 @@ type Props = {
 export default function NewContractorModal({ visible, existing, defaultCategory, onClose, onSaved }: Props) {
   const [category, setCategory] = useState<ProCategory>('home');
   const [name, setName] = useState('');
-  const [trade, setTrade] = useState('General');
+  const [trade, setTrade] = useState(TRADES[0]);
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [website, setWebsite] = useState('');
   const [area, setArea] = useState('');
+  const [address, setAddress] = useState('');
   const [insurance, setInsurance] = useState('');
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
@@ -80,6 +87,7 @@ export default function NewContractorModal({ visible, existing, defaultCategory,
     setEmail(existing?.email ?? '');
     setWebsite(existing?.website ?? '');
     setArea(existing?.service_area ?? '');
+    setAddress(existing?.address ?? '');
     setInsurance(existing?.insurance ?? '');
     setNotes(existing?.notes ?? '');
   }, [visible, existing, defaultCategory]);
@@ -108,6 +116,7 @@ export default function NewContractorModal({ visible, existing, defaultCategory,
       email: email.trim() || null,
       website: website.trim() || null,
       service_area: area.trim() || null,
+      address: address.trim() || null,
       insurance: isHealth ? insurance.trim() || null : null,
       notes: notes.trim() || null,
     };
@@ -175,14 +184,27 @@ export default function NewContractorModal({ visible, existing, defaultCategory,
           <Text style={styles.label}>Website (optional)</Text>
           <TextInput style={styles.input} placeholderTextColor="#888" placeholder="example.com" value={website} onChangeText={setWebsite} autoCapitalize="none" keyboardType="url" />
 
-          <Text style={styles.label}>{isHealth ? 'Office location (optional)' : 'Service area (optional)'}</Text>
+          <Text style={styles.label}>{isHealth ? 'Office city or ZIP' : 'City or ZIP they work from'}</Text>
           <TextInput
             style={styles.input}
             placeholderTextColor="#888"
-            placeholder={isHealth ? 'e.g. Mission Viejo' : 'e.g. South Orange County'}
+            placeholder={isHealth ? 'e.g. Mission Viejo or 92691' : 'e.g. Lake Forest or 92630'}
             value={area}
             onChangeText={setArea}
           />
+
+          <Text style={styles.label}>{isHealth ? 'Office address (optional)' : 'Business address (optional)'}</Text>
+          <TextInput
+            style={styles.input}
+            placeholderTextColor="#888"
+            placeholder="e.g. 26800 Crown Valley Pkwy, Mission Viejo"
+            value={address}
+            onChangeText={setAddress}
+            autoCapitalize="words"
+          />
+          <Text style={styles.hint}>
+            An address puts an exact pin on the map and powers Directions. Leave it blank for mobile businesses or anyone working from home.
+          </Text>
 
           {isHealth && (
             <>
@@ -239,6 +261,7 @@ const styles = StyleSheet.create({
     fontSize: 16, marginBottom: 8, backgroundColor: '#fafafa', color: '#111',
   },
   textArea: { height: 110, textAlignVertical: 'top' },
+  hint: { fontSize: 12, color: '#888', marginTop: -4, marginBottom: 8, lineHeight: 17 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 },
   chip: { borderWidth: 1, borderColor: '#ccc', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14, marginRight: 8, marginBottom: 8 },
   chipActive: { backgroundColor: FIRE_RED, borderColor: FIRE_RED },

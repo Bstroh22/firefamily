@@ -19,13 +19,35 @@ import ReportButton from './ReportButton';
 const FIRE_RED = '#C8102E';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
+export type RentalType = 'vacation' | 'short' | 'long';
+export type RatePeriod = 'night' | 'week' | 'month';
+
+export const RENTAL_TYPES: { key: RentalType; label: string; icon: string }[] = [
+  { key: 'vacation', label: 'Vacation', icon: '🏖️' },
+  { key: 'short', label: 'Short-term', icon: '📅' },
+  { key: 'long', label: 'Long-term', icon: '🏠' },
+];
+
+export function typeLabel(t?: RentalType | null) {
+  const found = RENTAL_TYPES.find((x) => x.key === (t ?? 'vacation'));
+  return found ? `${found.icon} ${found.label}` : '🏖️ Vacation';
+}
+
 export type Rental = {
   id: string;
   title: string;
   description: string | null;
   location: string | null;
   nightly_rate: number | null;
+  rate_period?: RatePeriod | null;
+  rental_type?: RentalType | null;
   max_guests: number | null;
+  bedrooms?: number | null;
+  furnished?: boolean | null;
+  pets_ok?: boolean | null;
+  room_only?: boolean | null;
+  lat?: number | null;
+  lng?: number | null;
   host_name: string | null;
   host_contact: string | null;
   photo_urls: string[];
@@ -34,13 +56,25 @@ export type Rental = {
   owner: { full_name: string | null; station: string | null } | null;
 };
 
-export function formatRate(rate: number | null) {
-  if (rate === null) return 'Contact for rate';
-  return `$${Number(rate).toLocaleString()}/night`;
+export function formatRate(rate: number | null, period: RatePeriod | null | undefined = 'night') {
+  if (rate === null || rate === undefined) return 'Contact for rate';
+  return `$${Number(rate).toLocaleString()}/${period ?? 'night'}`;
 }
 
 export function hostDisplayName(rental: Rental) {
   return rental.host_name || rental.owner?.full_name || 'Unknown';
+}
+
+// "2 bd · Furnished · Pets OK" or "Sleeps 6"
+export function rentalDetails(r: Rental) {
+  if ((r.rental_type ?? 'vacation') === 'vacation') return r.max_guests ? `Sleeps ${r.max_guests}` : '';
+  const parts: string[] = [];
+  if (r.room_only) parts.push('Room for rent');
+  else if (r.bedrooms !== null && r.bedrooms !== undefined) parts.push(r.bedrooms === 0 ? 'Studio' : `${r.bedrooms} bd`);
+  if (r.furnished === true) parts.push('Furnished');
+  if (r.furnished === false) parts.push('Unfurnished');
+  if (r.pets_ok === true) parts.push('Pets OK');
+  return parts.join(' · ');
 }
 
 function openContact(contact: string) {
@@ -73,6 +107,7 @@ export default function RentalDetailModal({ rental, isMine, onClose, onEdit, onH
   if (!rental) return null;
   const photos = rental.photo_urls ?? [];
   const postedBySomeoneElse = !!rental.host_name;
+  const isVacation = (rental.rental_type ?? 'vacation') === 'vacation';
 
   function confirmDelete() {
     Alert.alert('Delete rental?', 'This cannot be undone.', [
@@ -91,6 +126,12 @@ export default function RentalDetailModal({ rental, isMine, onClose, onEdit, onH
       setStarting(false);
     }
   }
+
+  const bedsValue = rental.room_only
+    ? 'Room'
+    : rental.bedrooms === 0
+    ? 'Studio'
+    : rental.bedrooms ?? '—';
 
   return (
     <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -118,24 +159,47 @@ export default function RentalDetailModal({ rental, isMine, onClose, onEdit, onH
         {photos.length > 1 && <Text style={styles.swipeHint}>Swipe to see all {photos.length} photos</Text>}
 
         <View style={styles.body}>
+          <Text style={styles.typeBadge}>{typeLabel(rental.rental_type)}</Text>
           <Text style={styles.title}>{rental.title}</Text>
-          {rental.location ? <Text style={styles.location}>📍 {rental.location}</Text> : null}
+          {rental.location ? (
+            <TouchableOpacity
+              onPress={() => Linking.openURL(`http://maps.apple.com/?q=${encodeURIComponent(rental.location!)}`)}
+            >
+              <Text style={styles.location}>📍 {rental.location}  ›</Text>
+            </TouchableOpacity>
+          ) : null}
 
           <View style={styles.statsRow}>
             <View style={styles.stat}>
-              <Text style={styles.statValue}>{formatRate(rental.nightly_rate)}</Text>
+              <Text style={styles.statValue}>{formatRate(rental.nightly_rate, rental.rate_period)}</Text>
               <Text style={styles.statLabel}>Rate</Text>
             </View>
-            <View style={styles.stat}>
-              <Text style={styles.statValue}>{rental.max_guests ?? '—'}</Text>
-              <Text style={styles.statLabel}>Max guests</Text>
-            </View>
+            {isVacation ? (
+              <View style={styles.stat}>
+                <Text style={styles.statValue}>{rental.max_guests ?? '—'}</Text>
+                <Text style={styles.statLabel}>Max guests</Text>
+              </View>
+            ) : (
+              <View style={styles.stat}>
+                <Text style={styles.statValue}>{bedsValue}</Text>
+                <Text style={styles.statLabel}>{rental.room_only ? 'Room for rent' : 'Bedrooms'}</Text>
+              </View>
+            )}
           </View>
+
+          {!isVacation && (rental.furnished !== null || rental.pets_ok !== null) ? (
+            <View style={styles.tags}>
+              {rental.furnished === true ? <Text style={styles.tag}>🛋️ Furnished</Text> : null}
+              {rental.furnished === false ? <Text style={styles.tag}>Unfurnished</Text> : null}
+              {rental.pets_ok === true ? <Text style={styles.tag}>🐾 Pets OK</Text> : null}
+              {rental.pets_ok === false ? <Text style={styles.tag}>No pets</Text> : null}
+            </View>
+          ) : null}
 
           <Text style={styles.sectionLabel}>About this place</Text>
           <Text style={styles.description}>{rental.description || 'No description.'}</Text>
 
-          <Text style={styles.sectionLabel}>Host</Text>
+          <Text style={styles.sectionLabel}>{isVacation ? 'Host' : 'Landlord / Host'}</Text>
           <Text style={styles.host}>
             {hostDisplayName(rental)}
             {!postedBySomeoneElse && rental.owner?.station ? ` · ${rental.owner.station}` : ''}
@@ -149,7 +213,7 @@ export default function RentalDetailModal({ rental, isMine, onClose, onEdit, onH
 
           {rental.host_contact ? (
             <>
-              <Text style={styles.sectionLabel}>Booking contact</Text>
+              <Text style={styles.sectionLabel}>Contact</Text>
               <TouchableOpacity onPress={() => openContact(rental.host_contact!)}>
                 <Text style={styles.contact}>{rental.host_contact}</Text>
               </TouchableOpacity>
@@ -168,7 +232,8 @@ export default function RentalDetailModal({ rental, isMine, onClose, onEdit, onH
             </TouchableOpacity>
           )}
 
-          {!isMine && <ReportButton kind="rental" targetId={rental.id} />}{isMine && (
+          {!isMine && <ReportButton kind="rental" targetId={rental.id} />}
+          {isMine && (
             <View style={{ marginTop: 28 }}>
               <TouchableOpacity style={styles.primaryButton} onPress={() => onEdit(rental)}>
                 <Text style={styles.primaryButtonText}>✏️ Edit Rental</Text>
@@ -188,7 +253,8 @@ export default function RentalDetailModal({ rental, isMine, onClose, onEdit, onH
         conversationId={chatId}
         otherName={rental.owner?.full_name ?? 'Host'}
         initialText={`Hi! I'm interested in "${rental.title}". Is it available?`}
-        subtitle={`🏡 Rental · ${rental.title}`} onClose={() => setChatId(null)}
+        subtitle={`🏡 Rental · ${rental.title}`}
+        onClose={() => setChatId(null)}
       />
     </Modal>
   );
@@ -206,8 +272,12 @@ const styles = StyleSheet.create({
   noPhoto: { alignItems: 'center', justifyContent: 'center' },
   swipeHint: { textAlign: 'center', color: '#888', fontSize: 13, marginTop: 8 },
   body: { padding: 20 },
+  typeBadge: {
+    alignSelf: 'flex-start', fontSize: 12, fontWeight: '700', color: FIRE_RED, backgroundColor: '#fdecee',
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, overflow: 'hidden', marginBottom: 8,
+  },
   title: { fontSize: 24, fontWeight: 'bold', color: '#111' },
-  location: { fontSize: 16, color: '#555', marginTop: 6 },
+  location: { fontSize: 16, color: '#031D3C', marginTop: 6 },
   statsRow: { flexDirection: 'row', marginTop: 18 },
   stat: {
     flex: 1, backgroundColor: '#f6f6f6', borderRadius: 12, padding: 14,
@@ -215,6 +285,11 @@ const styles = StyleSheet.create({
   },
   statValue: { fontSize: 17, fontWeight: 'bold', color: FIRE_RED, textAlign: 'center' },
   statLabel: { fontSize: 12, color: '#888', marginTop: 4 },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 12 },
+  tag: {
+    fontSize: 14, color: '#333', backgroundColor: '#f0f0f0', borderRadius: 14,
+    paddingHorizontal: 12, paddingVertical: 6, marginRight: 8, marginBottom: 8, overflow: 'hidden',
+  },
   sectionLabel: { fontSize: 13, fontWeight: '700', color: '#999', marginTop: 24, marginBottom: 6, textTransform: 'uppercase' },
   description: { fontSize: 16, color: '#333', lineHeight: 23 },
   host: { fontSize: 16, color: '#111', fontWeight: '600' },

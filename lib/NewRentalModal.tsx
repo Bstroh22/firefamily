@@ -7,11 +7,13 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text, TextInput, TouchableOpacity,
+  Text,
+  TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import PhotoPicker, { LocalPhoto, toPhotoList, uploadPhotos } from './PhotoPicker';
-import type { Rental } from './RentalDetailModal';
+import { RENTAL_TYPES, type RatePeriod, type Rental, type RentalType } from './RentalDetailModal';
 import { supabase } from './supabase';
 
 const FIRE_RED = '#C8102E';
@@ -19,15 +21,41 @@ const FIRE_RED = '#C8102E';
 type Props = {
   visible: boolean;
   existing?: Rental | null;
+  defaultType?: RentalType;
   onClose: () => void;
   onCreated: () => void;
 };
 
-export default function NewRentalModal({ visible, existing, onClose, onCreated }: Props) {
+function YesNo({ value, onChange }: { value: boolean | null; onChange: (v: boolean | null) => void }) {
+  return (
+    <View style={styles.toggleRow}>
+      {[
+        { label: 'Yes', v: true },
+        { label: 'No', v: false },
+      ].map((o) => (
+        <TouchableOpacity
+          key={o.label}
+          style={[styles.toggle, value === o.v && styles.toggleActive]}
+          onPress={() => onChange(value === o.v ? null : o.v)}
+        >
+          <Text style={[styles.toggleText, value === o.v && styles.toggleTextActive]}>{o.label}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+export default function NewRentalModal({ visible, existing, defaultType = 'vacation', onClose, onCreated }: Props) {
+  const [type, setType] = useState<RentalType>('vacation');
+  const [period, setPeriod] = useState<RatePeriod>('night');
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
   const [rate, setRate] = useState('');
   const [guests, setGuests] = useState('');
+  const [bedrooms, setBedrooms] = useState('');
+  const [furnished, setFurnished] = useState<boolean | null>(null);
+  const [petsOk, setPetsOk] = useState<boolean | null>(null);
+  const [roomOnly, setRoomOnly] = useState(false);
   const [description, setDescription] = useState('');
   const [hostIsMe, setHostIsMe] = useState(true);
   const [hostName, setHostName] = useState('');
@@ -36,31 +64,49 @@ export default function NewRentalModal({ visible, existing, onClose, onCreated }
   const [busy, setBusy] = useState(false);
 
   const isEditing = !!existing;
+  const isVacation = type === 'vacation';
 
   useEffect(() => {
     if (!visible) return;
     if (existing) {
+      setType(existing.rental_type ?? 'vacation');
+      setPeriod(existing.rate_period ?? 'night');
       setTitle(existing.title);
       setLocation(existing.location ?? '');
       setRate(existing.nightly_rate === null ? '' : String(existing.nightly_rate));
       setGuests(existing.max_guests === null ? '' : String(existing.max_guests));
+      setBedrooms(existing.bedrooms === null || existing.bedrooms === undefined ? '' : String(existing.bedrooms));
+      setFurnished(existing.furnished ?? null);
+      setPetsOk(existing.pets_ok ?? null);
+      setRoomOnly(!!existing.room_only);
       setDescription(existing.description ?? '');
       setHostIsMe(!existing.host_name);
       setHostName(existing.host_name ?? '');
       setHostContact(existing.host_contact ?? '');
       setPhotos(toPhotoList(existing.photo_urls));
     } else {
+      setType(defaultType);
+      setPeriod(defaultType === 'vacation' ? 'night' : 'month');
       setTitle('');
       setLocation('');
       setRate('');
       setGuests('');
+      setBedrooms('');
+      setFurnished(null);
+      setPetsOk(null);
+      setRoomOnly(false);
       setDescription('');
       setHostIsMe(true);
       setHostName('');
       setHostContact('');
       setPhotos([]);
     }
-  }, [visible, existing]);
+  }, [visible, existing, defaultType]);
+
+  function switchType(next: RentalType) {
+    setType(next);
+    setPeriod(next === 'vacation' ? 'night' : 'month');
+  }
 
   async function handleSave() {
     if (!title.trim() || !location.trim()) {
@@ -75,13 +121,19 @@ export default function NewRentalModal({ visible, existing, onClose, onCreated }
     const cleanedRate = rate.replace(/[$,\s]/g, '');
     const rateNumber = cleanedRate === '' ? null : Number(cleanedRate);
     if (rateNumber !== null && (isNaN(rateNumber) || rateNumber < 0)) {
-      Alert.alert('Check the rate', 'Enter a nightly rate like 250, or leave it blank.');
+      Alert.alert('Check the rate', 'Enter a number like 250, or leave it blank.');
       return;
     }
 
     const guestsNumber = guests.trim() === '' ? null : parseInt(guests, 10);
-    if (guestsNumber !== null && (isNaN(guestsNumber) || guestsNumber < 1)) {
+    if (isVacation && guestsNumber !== null && (isNaN(guestsNumber) || guestsNumber < 1)) {
       Alert.alert('Check max guests', 'Enter a whole number like 6, or leave it blank.');
+      return;
+    }
+
+    const bedsNumber = bedrooms.trim() === '' ? null : parseInt(bedrooms, 10);
+    if (!isVacation && !roomOnly && bedsNumber !== null && (isNaN(bedsNumber) || bedsNumber < 0)) {
+      Alert.alert('Check bedrooms', 'Enter a whole number (0 for a studio), or leave it blank.');
       return;
     }
 
@@ -90,10 +142,16 @@ export default function NewRentalModal({ visible, existing, onClose, onCreated }
       const photoUrls = await uploadPhotos(photos, 'rentals');
 
       const payload = {
+        rental_type: type,
+        rate_period: period,
         title: title.trim(),
         location: location.trim(),
         nightly_rate: rateNumber,
-        max_guests: guestsNumber,
+        max_guests: isVacation ? guestsNumber : null,
+        bedrooms: isVacation || roomOnly ? null : bedsNumber,
+        furnished: isVacation ? null : furnished,
+        pets_ok: isVacation ? null : petsOk,
+        room_only: isVacation ? false : roomOnly,
         description: description.trim() || null,
         host_name: hostIsMe ? null : hostName.trim(),
         host_contact: hostContact.trim() || null,
@@ -116,6 +174,15 @@ export default function NewRentalModal({ visible, existing, onClose, onCreated }
 
   const hasNewPhotos = photos.some((p) => !p.remote);
 
+  const titlePlaceholder =
+    type === 'vacation'
+      ? 'e.g. Big Bear cabin with hot tub'
+      : type === 'short'
+      ? 'e.g. Furnished 2 bd condo, 3-month minimum'
+      : 'e.g. 3 bd house for lease in Mission Viejo';
+
+  const rateLabel = type === 'vacation' ? 'Nightly rate' : type === 'long' ? 'Monthly rent' : 'Rate';
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
@@ -128,13 +195,35 @@ export default function NewRentalModal({ visible, existing, onClose, onCreated }
         </View>
 
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+          <Text style={styles.label}>Type of rental</Text>
+          <View style={styles.segment}>
+            {RENTAL_TYPES.map((t) => (
+              <TouchableOpacity
+                key={t.key}
+                style={[styles.segmentItem, type === t.key && styles.segmentActive]}
+                onPress={() => switchType(t.key)}
+              >
+                <Text style={[styles.segmentText, type === t.key && styles.segmentTextActive]}>
+                  {t.icon} {t.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.hint}>
+            {type === 'vacation'
+              ? 'Nightly or weekend getaways.'
+              : type === 'short'
+              ? 'Furnished stays of about 1–6 months: between homes, relocating, a remodel.'
+              : 'Leases of 6+ months, rooms for rent, roommates.'}
+          </Text>
+
           <PhotoPicker photos={photos} onChange={setPhotos} max={8} />
 
           <Text style={styles.label}>Title</Text>
           <TextInput
             style={styles.input}
             placeholderTextColor="#888"
-            placeholder="e.g. Big Bear cabin with hot tub"
+            placeholder={titlePlaceholder}
             value={title}
             onChangeText={setTitle}
           />
@@ -143,43 +232,104 @@ export default function NewRentalModal({ visible, existing, onClose, onCreated }
           <TextInput
             style={styles.input}
             placeholderTextColor="#888"
-            placeholder="e.g. Big Bear Lake, CA"
+            placeholder="City and state, or full address (e.g. Big Bear Lake, CA)"
             value={location}
             onChangeText={setLocation}
           />
 
+          {type === 'short' ? (
+            <>
+              <Text style={styles.label}>Priced per</Text>
+              <View style={styles.toggleRow}>
+                {(['week', 'month'] as RatePeriod[]).map((p) => (
+                  <TouchableOpacity
+                    key={p}
+                    style={[styles.toggle, period === p && styles.toggleActive]}
+                    onPress={() => setPeriod(p)}
+                  >
+                    <Text style={[styles.toggleText, period === p && styles.toggleTextActive]}>
+                      {p === 'week' ? 'Week' : 'Month'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          ) : null}
+
           <View style={styles.row}>
             <View style={{ flex: 1, marginRight: 8 }}>
-              <Text style={styles.label}>Nightly rate</Text>
+              <Text style={styles.label}>{rateLabel}</Text>
               <TextInput
                 style={styles.input}
                 placeholderTextColor="#888"
-                placeholder="e.g. 250"
+                placeholder={type === 'vacation' ? 'e.g. 250' : 'e.g. 2800'}
                 value={rate}
                 onChangeText={setRate}
                 keyboardType="decimal-pad"
               />
             </View>
             <View style={{ flex: 1, marginLeft: 8 }}>
-              <Text style={styles.label}>Max guests</Text>
-              <TextInput
-                style={styles.input}
-                placeholderTextColor="#888"
-                placeholder="e.g. 6"
-                value={guests}
-                onChangeText={setGuests}
-                keyboardType="number-pad"
-              />
+              {isVacation ? (
+                <>
+                  <Text style={styles.label}>Max guests</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholderTextColor="#888"
+                    placeholder="e.g. 6"
+                    value={guests}
+                    onChangeText={setGuests}
+                    keyboardType="number-pad"
+                  />
+                </>
+              ) : !roomOnly ? (
+                <>
+                  <Text style={styles.label}>Bedrooms</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholderTextColor="#888"
+                    placeholder="0 = studio"
+                    value={bedrooms}
+                    onChangeText={setBedrooms}
+                    keyboardType="number-pad"
+                  />
+                </>
+              ) : null}
             </View>
           </View>
 
-          <Text style={styles.label}>Who is the host?</Text>
+          {!isVacation ? (
+            <>
+              <Text style={styles.label}>What's for rent?</Text>
+              <View style={styles.toggleRow}>
+                <TouchableOpacity
+                  style={[styles.toggle, !roomOnly && styles.toggleActive]}
+                  onPress={() => setRoomOnly(false)}
+                >
+                  <Text style={[styles.toggleText, !roomOnly && styles.toggleTextActive]}>Whole place</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.toggle, roomOnly && styles.toggleActive]}
+                  onPress={() => setRoomOnly(true)}
+                >
+                  <Text style={[styles.toggleText, roomOnly && styles.toggleTextActive]}>Room for rent</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.label}>Furnished?</Text>
+              <YesNo value={furnished} onChange={setFurnished} />
+
+              <Text style={styles.label}>Pets OK?</Text>
+              <YesNo value={petsOk} onChange={setPetsOk} />
+            </>
+          ) : null}
+
+          <Text style={styles.label}>{isVacation ? 'Who is the host?' : 'Who is the landlord / host?'}</Text>
           <View style={styles.toggleRow}>
             <TouchableOpacity
               style={[styles.toggle, hostIsMe && styles.toggleActive]}
               onPress={() => setHostIsMe(true)}
             >
-              <Text style={[styles.toggleText, hostIsMe && styles.toggleTextActive]}>I'm the host</Text>
+              <Text style={[styles.toggleText, hostIsMe && styles.toggleTextActive]}>It's me</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.toggle, !hostIsMe && styles.toggleActive]}
@@ -191,7 +341,7 @@ export default function NewRentalModal({ visible, existing, onClose, onCreated }
 
           {!hostIsMe && (
             <>
-              <Text style={styles.label}>Host's name</Text>
+              <Text style={styles.label}>Their name</Text>
               <TextInput
                 style={styles.input}
                 placeholderTextColor="#888"
@@ -203,11 +353,11 @@ export default function NewRentalModal({ visible, existing, onClose, onCreated }
             </>
           )}
 
-          <Text style={styles.label}>Booking contact (optional)</Text>
+          <Text style={styles.label}>Contact (optional)</Text>
           <TextInput
             style={styles.input}
             placeholderTextColor="#888"
-            placeholder="Phone or email for booking"
+            placeholder="Phone or email"
             value={hostContact}
             onChangeText={setHostContact}
             autoCapitalize="none"
@@ -217,7 +367,11 @@ export default function NewRentalModal({ visible, existing, onClose, onCreated }
           <TextInput
             style={[styles.input, styles.textArea]}
             placeholderTextColor="#888"
-            placeholder="Bedrooms, amenities, minimum stay, firefighter discount, how to book"
+            placeholder={
+              isVacation
+                ? 'Bedrooms, amenities, minimum stay, firefighter discount, how to book'
+                : 'Available date, lease length, utilities, parking, deposit, firefighter discount'
+            }
             value={description}
             onChangeText={setDescription}
             multiline
@@ -250,6 +404,12 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: 'bold' },
   body: { padding: 20, paddingBottom: 60 },
   label: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 6, marginTop: 8 },
+  hint: { fontSize: 12, color: '#888', marginBottom: 10, lineHeight: 17 },
+  segment: { flexDirection: 'row', backgroundColor: '#f0f0f0', borderRadius: 12, padding: 4, marginBottom: 6 },
+  segmentItem: { flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: 'center' },
+  segmentActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
+  segmentText: { fontSize: 13, color: '#666', fontWeight: '600' },
+  segmentTextActive: { color: FIRE_RED },
   input: {
     borderWidth: 1, borderColor: '#ccc', borderRadius: 10, padding: 14,
     fontSize: 16, marginBottom: 8, backgroundColor: '#fafafa', color: '#111',

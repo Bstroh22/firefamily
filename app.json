@@ -37,6 +37,7 @@
           "locationWhenInUsePermission": "SoCal FireFamily uses your location to show referrals near you."
         }
       ],
+      "expo-notifications",
       "expo-router",
       [
         "expo-splash-screen",

@@ -17,6 +17,7 @@ import ChannelChat, { Channel } from '../../lib/ChannelChat';
 import { timeAgo } from '../../lib/ListingDetailModal';
 import { ActiveNow } from '../../lib/activity';
 import { useForumUnread } from '../../lib/forumUnread';
+import { takePendingChannel } from '../../lib/openChannel';
 import { supabase } from '../../lib/supabase';
 
 const FIRE_RED = '#C8102E';
@@ -37,6 +38,7 @@ export default function ForumsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [openChannel, setOpenChannel] = useState<Channel | null>(null);
   const [openQuery, setOpenQuery] = useState<string | undefined>(undefined);
+  const [pendingOpen, setPendingOpen] = useState<string | null>(null);
 
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<SearchHit[]>([]);
@@ -64,8 +66,27 @@ export default function ForumsScreen() {
   useFocusEffect(
     useCallback(() => {
       refreshUnread();
+      // Did Home or a notification ask to open a specific channel?
+      const id = takePendingChannel();
+      if (id) setPendingOpen(id);
     }, [refreshUnread])
   );
+
+  // Open that channel once the list has loaded (short delay so iOS can finish switching tabs)
+    useEffect(() => {
+    if (!pendingOpen || channels.length === 0) return;
+    const target = channels.find((c) => String(c.id) === pendingOpen);
+    if (!target) {
+      setPendingOpen(null);
+      return;
+    }
+    const t = setTimeout(() => {
+      setOpenQuery(undefined);
+      setOpenChannel(target);
+      setPendingOpen(null);
+    }, 450);
+    return () => clearTimeout(t);
+  }, [pendingOpen, channels]);
 
   // Search messages across every channel this member can see
   useEffect(() => {
