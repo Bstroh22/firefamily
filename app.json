@@ -37,6 +37,12 @@
           "locationWhenInUsePermission": "SoCal FireFamily uses your location to show referrals near you."
         }
       ],
+      [
+        "react-native-maps",
+        {
+          "androidGoogleMapsApiKey": "AIzaSyA1FcgnH3mq-kZNyh5riGNllMcN9PZN1CA"
+        }
+      ],
       "expo-notifications",
       "expo-router",
       [
