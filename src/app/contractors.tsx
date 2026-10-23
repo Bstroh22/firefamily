@@ -8,6 +8,7 @@ import {
   Keyboard,
   Linking,
   Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -73,6 +74,16 @@ function formatMiles(mi: number) {
   return mi < 10 ? `${mi.toFixed(1)} mi` : `${Math.round(mi)} mi`;
 }
 
+// Android needs location permission before it can look up addresses
+async function geocodeAllowed(ask: boolean) {
+  if (Platform.OS !== 'android') return true;
+  const current = await Location.getForegroundPermissionsAsync();
+  if (current.granted) return true;
+  if (!ask) return false;
+  const req = await Location.requestForegroundPermissionsAsync();
+  return req.granted;
+}
+
 // Looks up map spots for referrals that don't have one yet, and saves them for everyone
 async function fillMissingCoords(
   list: Contractor[],
@@ -80,6 +91,7 @@ async function fillMissingCoords(
   tried: Set<string>,
   onFound: (id: string, pt: Coord) => void
 ) {
+  if (!(await geocodeAllowed(false))) return;
   let count = 0;
   for (const c of list) {
     if (count >= 10) break;
@@ -121,7 +133,7 @@ type DetailProps = {
   onToggle: (c: Contractor) => void;
   onEdit: (c: Contractor) => void;
   onDelete: (c: Contractor) => void;
-    isAdmin?: boolean;
+  isAdmin?: boolean;
 };
 
 function ProDetail({ item, isMine, isAdmin, onClose, onToggle, onEdit, onDelete }: DetailProps) {
@@ -248,7 +260,7 @@ function ProDetail({ item, isMine, isAdmin, onClose, onToggle, onEdit, onDelete 
 }
 
 export default function ProsScreen() {
-   const { session, profile } = useAuth();
+  const { session, profile } = useAuth();
   const myId = session?.user.id;
   const [items, setItems] = useState<Contractor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -380,6 +392,11 @@ export default function ProsScreen() {
     Keyboard.dismiss();
     setLocating(true);
     try {
+      if (!(await geocodeAllowed(true))) {
+        Alert.alert('Location needed', 'Android needs location permission to search by ZIP or city.');
+        setLocating(false);
+        return;
+      }
       const res = await Location.geocodeAsync(geocodeText(t));
       if (!res.length) {
         Alert.alert('Not found', 'Try a 5-digit ZIP or a city name.');
@@ -642,7 +659,7 @@ export default function ProsScreen() {
       <ProDetail
         item={selected}
         isMine={selected?.referred_by === myId}
-                isAdmin={!!profile?.is_admin}
+        isAdmin={!!profile?.is_admin}
         onClose={() => setSelectedId(null)}
         onToggle={toggleRecommend}
         onEdit={(c) => { setSelectedId(null); setTimeout(() => setEditing(c), 800); }}

@@ -239,7 +239,7 @@ export default function ChannelChat({ channel, initialQuery, onClose }: Props) {
     ]);
   }
 
-    // Long-press someone else's message: members report it; admins can also remove it
+  // Long-press someone else's message: members report it; admins can also remove it
   function moderate(message: Message) {
     if (!profile?.is_admin) {
       setReportId(message.id);
@@ -250,7 +250,9 @@ export default function ChannelChat({ channel, initialQuery, onClose }: Props) {
       { text: 'Report', onPress: () => setReportId(message.id) },
       { text: 'Cancel', style: 'cancel' },
     ]);
-  }function confirmDirectMessage(message: Message) {
+  }
+
+  function confirmDirectMessage(message: Message) {
     const name = message.author?.full_name ?? 'this member';
     Alert.alert(`Message ${name}?`, 'Start a private conversation.', [
       { text: 'Cancel', style: 'cancel' },
@@ -415,6 +417,12 @@ export default function ChannelChat({ channel, initialQuery, onClose }: Props) {
             ) : loading ? (
               <View style={styles.center}>
                 <ActivityIndicator size="large" color={FIRE_RED} />
+              </View>
+            ) : messages.length === 0 ? (
+              <View style={styles.empty}>
+                <Text style={{ fontSize: 48 }}>💬</Text>
+                <Text style={styles.emptyTitle}>No messages yet</Text>
+                <Text style={styles.emptyText}>Start the conversation in #{channel.name}.</Text>
               </View>
             ) : (
               <FlatList

@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator, Alert,
-    FlatList,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    StyleSheet,
-    Text, TextInput, TouchableOpacity,
-    View,
+  ActivityIndicator, Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text, TextInput, TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from './auth';
@@ -126,6 +126,12 @@ export default function ConversationChat({ conversationId, otherName, subtitle, 
             {loading ? (
               <View style={styles.center}>
                 <ActivityIndicator size="large" color={FIRE_RED} />
+              </View>
+            ) : messages.length === 0 ? (
+              <View style={styles.empty}>
+                <Text style={{ fontSize: 48 }}>✉️</Text>
+                <Text style={styles.emptyTitle}>Start the conversation</Text>
+                <Text style={styles.emptyText}>Only you and {otherName} can see these messages.</Text>
               </View>
             ) : (
               <FlatList
